@@ -34,7 +34,7 @@ st.set_page_config(
     page_title="Tclipデータ検索beta",
     page_icon="🔍",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"  # サイドバーをデフォルトで折りたたむ
 )
 
 # タイトル
@@ -155,7 +155,6 @@ with st.sidebar:
             region = S3_REGION
     
     st.markdown("---")
-    st.info("💡 ヒント: 番組ID（doc_id）で検索できます\n\n例: AkxAQAJ3gAM")
 
 # S3クライアントの取得（環境変数から自動的に読み込まれる）
 s3_client = get_s3_client()
@@ -216,19 +215,14 @@ def get_search_options(_s3_client) -> Dict[str, List[str]]:
 with st.form("search_form"):
     st.subheader("検索条件")
     
-    # 複数列レイアウト
-    col1, col2 = st.columns(2)
+    # 上部: 日付、時間、放送局
+    search_options = get_search_options(_s3_client=s3_client)
+    
+    # 3列レイアウト
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        # 番組ID
-        program_id = st.text_input(
-            "番組ID",
-            placeholder="例: AkxAQAJ3gAM",
-            help="番組ID（doc_id）を入力"
-        )
-        
         # 放送局（選択式）
-        search_options = get_search_options(_s3_client=s3_client)
         channel = st.selectbox(
             "放送局",
             options=["すべて"] + search_options['channels'],
@@ -236,53 +230,33 @@ with st.form("search_form"):
         )
     
     with col2:
-        # 日付と時間を1つのセクションにまとめる
-        st.markdown("#### 📅 日付・時間でフィルタ")
-        use_datetime_filter = st.checkbox(
-            "日付・時間でフィルタを有効にする", 
-            key="use_datetime_filter", 
-            help="チェックを入れると日付と時間でフィルタリングします"
+        # 日付
+        st.markdown("**📆 日付**")
+        selected_date = st.date_input(
+            "日付を選択",
+            value=None,
+            help="カレンダーから日付を選択してください",
+            key="date_input",
+            label_visibility="collapsed"
         )
-        
-        if use_datetime_filter:
-            # 日付と時間を横並びに配置
-            datetime_col1, datetime_col2 = st.columns(2)
-            
-            with datetime_col1:
-                st.markdown("**📆 日付**")
-                selected_date = st.date_input(
-                    "日付を選択",
-                    value=date.today(),
-                    help="カレンダーから日付を選択してください",
-                    key="date_input",
-                    label_visibility="collapsed"
-                )
-                date_str = selected_date.strftime("%Y%m%d") if selected_date else None
-            
-            with datetime_col2:
-                st.markdown("**🕐 時間**")
-                default_time = time(0, 0)  # 00:00をデフォルト
-                selected_time = st.time_input(
-                    "時間を選択",
-                    value=default_time,
-                    help="時間を選択してください（時:分形式）",
-                    key="time_input",
-                    label_visibility="collapsed"
-                )
-                time_str = selected_time.strftime("%H%M") if selected_time else None
-            
-            # 選択された日付と時間をプレビュー表示
-            if selected_date and selected_time:
-                preview_date = selected_date.strftime("%Y年%m月%d日")
-                preview_time = selected_time.strftime("%H:%M")
-                st.info(f"📌 検索条件: {preview_date} {preview_time}")
-        else:
-            date_str = None
-            time_str = None
-            selected_date = None
-            selected_time = None
+        date_str = selected_date.strftime("%Y%m%d") if selected_date else None
     
-    # キーワード検索（全文とチャンクテキストを対象）
+    with col3:
+        # 時間
+        st.markdown("**🕐 時間**")
+        default_time = time(0, 0)  # 00:00をデフォルト
+        selected_time = st.time_input(
+            "時間を選択",
+            value=default_time,
+            help="時間を選択してください（時:分形式）",
+            key="time_input",
+            label_visibility="collapsed"
+        )
+        time_str = selected_time.strftime("%H%M") if selected_time else None
+    
+    st.markdown("---")
+    
+    # 下部: キーワード
     keyword = st.text_input(
         "キーワード（全文・チャンクテキスト検索）",
         placeholder="キーワードを入力してください",
@@ -291,6 +265,9 @@ with st.form("search_form"):
     
     # 検索ボタン
     search_button = st.form_submit_button("🔍 検索", use_container_width=True)
+    
+    # program_idは削除（使用しない）
+    program_id = ""
 
 # データ取得関数
 @st.cache_data(ttl=300)  # 5分間キャッシュ
@@ -660,57 +637,38 @@ def display_master_data(master_data, chunks, images, doc_id):
 
 # 検索実行
 if search_button:
-    # 番組IDのみが指定されている場合は直接取得
-    if program_id and program_id.strip() and not date_str and not time_str and not channel and not keyword:
-        with st.spinner("データを取得中..."):
-            doc_id = program_id.strip()
-            master_data = get_master_data(_s3_client=s3_client, doc_id=doc_id)
-            chunks = get_chunk_data(_s3_client=s3_client, doc_id=doc_id)
-            images = list_images(_s3_client=s3_client, doc_id=doc_id)
-        
-        if master_data is None and not chunks and not images:
-            st.error(f"❌ 番組ID '{doc_id}' のデータが見つかりませんでした")
-            st.info("💡 正しい番組IDを入力してください")
-        else:
-            # データ表示
-            st.success(f"✅ 番組ID '{doc_id}' のデータを取得しました")
-            st.markdown("---")
-            display_master_data(master_data, chunks, images, doc_id)
+    # 検索条件をチェック
+    if not date_str and not time_str and (not channel or channel == "すべて") and not keyword:
+        st.warning("⚠️ 検索条件を1つ以上入力してください")
     else:
-        # 複数条件またはキーワード検索
-        if not program_id and not date_str and not time_str and not channel and not keyword:
-            st.warning("⚠️ 検索条件を1つ以上入力してください")
+        # 全データから検索
+        with st.spinner("全データを読み込み中...（初回は時間がかかります）"):
+            all_masters = list_all_master_data(_s3_client=s3_client)
+        
+        if not all_masters:
+            st.error("❌ データの取得に失敗しました")
         else:
-            # 全データから検索
-            with st.spinner("全データを読み込み中...（初回は時間がかかります）"):
-                all_masters = list_all_master_data(_s3_client=s3_client)
+            # 検索条件の表示
+            search_conditions = []
+            if date_str:
+                search_conditions.append(f"日付: {selected_date.strftime('%Y年%m月%d日') if selected_date else date_str}")
+            if time_str:
+                search_conditions.append(f"時間: {selected_time.strftime('%H:%M') if selected_time else time_str}")
+            if channel and channel != "すべて":
+                search_conditions.append(f"放送局: {channel}")
+            if keyword:
+                search_conditions.append(f"キーワード: {keyword}")
             
-            if not all_masters:
-                st.error("❌ データの取得に失敗しました")
-            else:
-                # 検索条件の表示
-                search_conditions = []
-                if program_id:
-                    search_conditions.append(f"番組ID: {program_id}")
-                if date_str:
-                    search_conditions.append(f"日付: {date_str}")
-                if time_str:
-                    search_conditions.append(f"時間: {time_str}")
-                if channel and channel != "すべて":
-                    search_conditions.append(f"放送局: {channel}")
-                if keyword:
-                    search_conditions.append(f"キーワード: {keyword}")
-                
-                with st.spinner(f"検索中: {', '.join(search_conditions) if search_conditions else '条件なし'}..."):
-                    search_results = search_master_data_with_chunks(
-                        _s3_client=s3_client,
-                        master_list=all_masters,
-                        program_id=program_id,
-                        date_str=date_str if date_str else "",
-                        time_str=time_str if time_str else "",
-                        channel=channel if channel != "すべて" else "",
-                        keyword=keyword
-                    )
+            with st.spinner(f"検索中: {', '.join(search_conditions) if search_conditions else '条件なし'}..."):
+                search_results = search_master_data_with_chunks(
+                    _s3_client=s3_client,
+                    master_list=all_masters,
+                    program_id="",  # 番組IDは削除
+                    date_str=date_str if date_str else "",
+                    time_str=time_str if time_str else "",
+                    channel=channel if channel != "すべて" else "",
+                    keyword=keyword
+                )
                 
                 if not search_results:
                     st.warning("⚠️ 検索条件に一致するデータが見つかりませんでした")
