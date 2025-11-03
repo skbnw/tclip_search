@@ -68,19 +68,11 @@ def get_aws_credentials():
     return None, None, None
 
 @st.cache_resource
-def get_s3_client(access_key=None, secret_key=None, region=None):
-    """S3クライアントを取得"""
+def get_s3_client():
+    """S3クライアントを取得（環境変数から認証情報を自動的に読み込む）"""
     try:
-        if access_key and secret_key:
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=access_key,
-                aws_secret_access_key=secret_key,
-                region_name=region or S3_REGION
-            )
-        else:
-            # 認証情報なしで試行（環境変数またはIAMロールを使用）
-            s3_client = boto3.client('s3', region_name=region or S3_REGION)
+        # boto3は環境変数から自動的に認証情報を読み込む
+        s3_client = boto3.client('s3', region_name=S3_REGION)
         return s3_client
     except Exception as e:
         st.error(f"S3クライアントの作成に失敗しました: {str(e)}")
@@ -88,6 +80,12 @@ def get_s3_client(access_key=None, secret_key=None, region=None):
 
 # AWS認証情報の取得
 access_key, secret_key, region = get_aws_credentials()
+
+# 認証情報を環境変数に設定（boto3が自動的に読み込むように）
+if access_key and secret_key:
+    os.environ['AWS_ACCESS_KEY_ID'] = access_key
+    os.environ['AWS_SECRET_ACCESS_KEY'] = secret_key
+    os.environ['AWS_DEFAULT_REGION'] = region or S3_REGION
 
 # サイドバー
 with st.sidebar:
@@ -133,6 +131,10 @@ with st.sidebar:
         )
         
         if access_key_id and secret_access_key:
+            # 入力された認証情報を環境変数に設定
+            os.environ['AWS_ACCESS_KEY_ID'] = access_key_id
+            os.environ['AWS_SECRET_ACCESS_KEY'] = secret_access_key
+            os.environ['AWS_DEFAULT_REGION'] = S3_REGION
             access_key = access_key_id
             secret_key = secret_access_key
             region = S3_REGION
@@ -140,8 +142,8 @@ with st.sidebar:
     st.markdown("---")
     st.info("💡 ヒント: 番組ID（doc_id）で検索できます\n\n例: AkxAQAJ3gAM")
 
-# S3クライアントの取得
-s3_client = get_s3_client(access_key=access_key, secret_key=secret_key, region=region)
+# S3クライアントの取得（環境変数から自動的に読み込まれる）
+s3_client = get_s3_client()
 
 if s3_client is None:
     st.error("S3クライアントの初期化に失敗しました。AWS認証情報を確認してください。")
