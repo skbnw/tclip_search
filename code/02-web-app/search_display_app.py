@@ -31,14 +31,14 @@ S3_IMAGE_PREFIX = "rag/images/"
 
 # ページ設定
 st.set_page_config(
-    page_title="S3データ検索アプリ",
+    page_title="Tclipデータ検索beta",
     page_icon="🔍",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # タイトル
-st.title("🔍 S3データ検索・表示アプリ")
+st.title("🔍 Tclipデータ検索beta")
 st.markdown("---")
 
 # AWS認証情報の設定（環境変数、Streamlit Secrets、またはユーザー入力）
@@ -67,17 +67,6 @@ def get_aws_credentials():
     # 3. ユーザー入力（サイドバーで設定）
     return None, None, None
 
-@st.cache_resource
-def get_s3_client():
-    """S3クライアントを取得（環境変数から認証情報を自動的に読み込む）"""
-    try:
-        # boto3は環境変数から自動的に認証情報を読み込む
-        s3_client = boto3.client('s3', region_name=S3_REGION)
-        return s3_client
-    except Exception as e:
-        st.error(f"S3クライアントの作成に失敗しました: {str(e)}")
-        return None
-
 # AWS認証情報の取得
 access_key, secret_key, region = get_aws_credentials()
 
@@ -86,6 +75,32 @@ if access_key and secret_key:
     os.environ['AWS_ACCESS_KEY_ID'] = access_key
     os.environ['AWS_SECRET_ACCESS_KEY'] = secret_key
     os.environ['AWS_DEFAULT_REGION'] = region or S3_REGION
+
+@st.cache_resource
+def get_s3_client():
+    """S3クライアントを取得（環境変数から認証情報を自動的に読み込む）"""
+    try:
+        # 認証情報が環境変数に設定されていることを確認
+        access_key = os.getenv('AWS_ACCESS_KEY_ID')
+        secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        region = os.getenv('AWS_DEFAULT_REGION', S3_REGION)
+        
+        if access_key and secret_key:
+            # 明示的に認証情報を渡す
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                region_name=region
+            )
+        else:
+            # 環境変数から自動的に読み込む（IAMロールなど）
+            s3_client = boto3.client('s3', region_name=region)
+        
+        return s3_client
+    except Exception as e:
+        st.error(f"S3クライアントの作成に失敗しました: {str(e)}")
+        return None
 
 # サイドバー
 with st.sidebar:
@@ -150,7 +165,6 @@ if s3_client is None:
     st.stop()
 
 # メインコンテンツ
-st.header("📋 データ検索")
 
 # 検索オプションの取得（初回のみ読み込み）
 @st.cache_data(ttl=600)
