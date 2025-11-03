@@ -1,0 +1,4 @@
+# Streamlit Webアプリ用の依存パッケージ
+streamlit>=1.28.0
+boto3>=1.28.0
+

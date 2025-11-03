@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 機密情報（絶対にコミットしない）
+.env
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.json
+
+# Streamlit
+.streamlit/secrets.toml
+
+# 出力ファイル（必要に応じて）
+output/*.log
+output/*.tmp
+
+# AWS
+.aws/
+*.credentials
+
+# 一時ファイル
+*.tmp
+*.bak
+*.cache
+
