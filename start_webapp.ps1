@@ -7,8 +7,11 @@ Write-Host ""
 
 # AWS認証情報の設定
 Write-Host "[INFO] AWS認証情報を設定中..." -ForegroundColor Yellow
-$env:AWS_ACCESS_KEY_ID="YOUR_AWS_ACCESS_KEY_ID"
-$env:AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET_ACCESS_KEY"
+Write-Host "[WARNING] 認証情報を設定してください。" -ForegroundColor Yellow
+Write-Host "[WARNING] 環境変数に設定されている場合は、アプリ内の「環境変数を使用」をチェックしてください。" -ForegroundColor Yellow
+# 環境変数が設定されていない場合は、以下を編集してください：
+# $env:AWS_ACCESS_KEY_ID="YOUR_AWS_ACCESS_KEY_ID"
+# $env:AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET_ACCESS_KEY"
 $env:AWS_DEFAULT_REGION="ap-northeast-1"
 
 # 仮想環境のアクティベート
