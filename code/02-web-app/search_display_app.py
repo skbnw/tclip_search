@@ -41,16 +41,53 @@ st.set_page_config(
 st.title("🔍 S3データ検索・表示アプリ")
 st.markdown("---")
 
-# AWS認証情報の設定（環境変数またはユーザー入力）
+# AWS認証情報の設定（環境変数、Streamlit Secrets、またはユーザー入力）
+def get_aws_credentials():
+    """AWS認証情報を取得（優先順位: Secrets > 環境変数 > ユーザー入力）"""
+    access_key = None
+    secret_key = None
+    region = S3_REGION
+    
+    # 1. Streamlit Secretsから取得（Streamlit Cloudで使用）
+    try:
+        if 'AWS_ACCESS_KEY_ID' in st.secrets:
+            access_key = st.secrets['AWS_ACCESS_KEY_ID']
+            secret_key = st.secrets['AWS_SECRET_ACCESS_KEY']
+            region = st.secrets.get('AWS_DEFAULT_REGION', S3_REGION)
+            return access_key, secret_key, region
+    except (AttributeError, KeyError):
+        pass
+    
+    # 2. 環境変数から取得
+    access_key = os.getenv('AWS_ACCESS_KEY_ID')
+    secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    if access_key and secret_key:
+        return access_key, secret_key, os.getenv('AWS_DEFAULT_REGION', S3_REGION)
+    
+    # 3. ユーザー入力（サイドバーで設定）
+    return None, None, None
+
 @st.cache_resource
-def get_s3_client():
+def get_s3_client(access_key=None, secret_key=None, region=None):
     """S3クライアントを取得"""
     try:
-        s3_client = boto3.client('s3', region_name=S3_REGION)
+        if access_key and secret_key:
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                region_name=region or S3_REGION
+            )
+        else:
+            # 認証情報なしで試行（環境変数またはIAMロールを使用）
+            s3_client = boto3.client('s3', region_name=region or S3_REGION)
         return s3_client
     except Exception as e:
         st.error(f"S3クライアントの作成に失敗しました: {str(e)}")
         return None
+
+# AWS認証情報の取得
+access_key, secret_key, region = get_aws_credentials()
 
 # サイドバー
 with st.sidebar:
@@ -59,42 +96,52 @@ with st.sidebar:
     # AWS認証情報の入力（オプション）
     st.subheader("AWS認証情報")
     
+    # Secretsから取得できたか確認
+    has_secrets = False
+    try:
+        has_secrets = bool('AWS_ACCESS_KEY_ID' in st.secrets and 'AWS_SECRET_ACCESS_KEY' in st.secrets)
+    except (AttributeError, KeyError):
+        pass
+    
     # 環境変数に認証情報が設定されているか確認
     env_has_credentials = bool(os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('AWS_SECRET_ACCESS_KEY'))
     
-    # デフォルトで環境変数を使用（環境変数が設定されている場合）
-    use_env_credentials = st.checkbox("環境変数を使用", value=env_has_credentials)
+    # 認証情報の状態を表示
+    if has_secrets:
+        st.success("✅ Streamlit Secretsから認証情報を読み込みました")
+    elif env_has_credentials:
+        st.info("ℹ️ 環境変数から認証情報を読み込みました")
+    else:
+        st.warning("⚠️ 認証情報が見つかりません。以下のいずれかを設定してください：")
+        st.markdown("1. Streamlit Cloud: Settings → Secrets")
+        st.markdown("2. 環境変数（ローカル開発時）")
+        st.markdown("3. 下記の入力フィールド（一時的）")
     
-    if not use_env_credentials:
-        # 環境変数を使用しない場合は、直接入力またはデフォルト値を設定
-        default_access_key = os.getenv('AWS_ACCESS_KEY_ID', '')
-        default_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY', '')
-        
+    # ユーザー入力用（Secretsや環境変数がない場合）
+    if not has_secrets and not env_has_credentials:
         access_key_id = st.text_input(
             "Access Key ID", 
-            value=default_access_key if default_access_key else "",
-            type="password"
+            value="",
+            type="password",
+            help="一時的に使用する場合は入力してください"
         )
         secret_access_key = st.text_input(
             "Secret Access Key", 
-            value=default_secret_key if default_secret_key else "",
-            type="password"
+            value="",
+            type="password",
+            help="一時的に使用する場合は入力してください"
         )
         
         if access_key_id and secret_access_key:
-            os.environ['AWS_ACCESS_KEY_ID'] = access_key_id
-            os.environ['AWS_SECRET_ACCESS_KEY'] = secret_access_key
-            os.environ['AWS_DEFAULT_REGION'] = S3_REGION
-    else:
-        # 環境変数を使用する場合、既存の環境変数が設定されているか確認
-        if not env_has_credentials:
-            st.warning("⚠️ 環境変数にAWS認証情報が設定されていません。\n\n環境変数を設定するか、チェックを外して直接入力してください。")
+            access_key = access_key_id
+            secret_key = secret_access_key
+            region = S3_REGION
     
     st.markdown("---")
     st.info("💡 ヒント: 番組ID（doc_id）で検索できます\n\n例: AkxAQAJ3gAM")
 
 # S3クライアントの取得
-s3_client = get_s3_client()
+s3_client = get_s3_client(access_key=access_key, secret_key=secret_key, region=region)
 
 if s3_client is None:
     st.error("S3クライアントの初期化に失敗しました。AWS認証情報を確認してください。")
