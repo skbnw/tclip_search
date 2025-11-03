@@ -165,6 +165,8 @@ if s3_client is None:
 
 # メインコンテンツ
 
+# データ取得関数（検索オプション取得で使用するため先に定義）
+
 # 検索オプションの取得（初回のみ読み込み）
 @st.cache_data(ttl=600)
 def get_search_options(_s3_client) -> Dict[str, List[str]]:
@@ -390,30 +392,6 @@ def list_images(_s3_client, doc_id: str) -> List[str]:
         st.error(f"画像一覧の取得エラー: {str(e)}")
         return []
 
-@st.cache_data(ttl=600)  # 10分間キャッシュ（全データリストは重いため）
-def list_all_master_data(_s3_client) -> List[Dict]:
-    """全マスターデータのリストを取得（検索用）"""
-    try:
-        response = _s3_client.list_objects_v2(Bucket=S3_BUCKET_NAME, Prefix=S3_MASTER_PREFIX)
-        
-        master_list = []
-        if 'Contents' in response:
-            for obj in response['Contents']:
-                try:
-                    # オブジェクトを取得
-                    file_response = _s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=obj['Key'])
-                    content = file_response['Body'].read().decode('utf-8')
-                    lines = content.strip().split('\n')
-                    if lines:
-                        master_data = json.loads(lines[0])
-                        master_list.append(master_data)
-                except Exception as e:
-                    continue  # エラーが発生したファイルはスキップ
-        
-        return master_list
-    except Exception as e:
-        st.error(f"全マスターデータの取得エラー: {str(e)}")
-        return []
 
 def search_master_data_advanced(
     master_list: List[Dict], 
