@@ -694,15 +694,17 @@ if search_button:
 if st.session_state.search_results:
     st.subheader("📋 検索結果")
     
-    # 戻るボタン（詳細表示時）
+    # 詳細表示モード（独立した画面として表示）
     if st.session_state.selected_doc_id:
-        if st.button("← 検索結果一覧に戻る"):
-            st.session_state.selected_doc_id = None
-            st.rerun()
+        # 戻るボタンとタイトル
+        col_back, col_title = st.columns([1, 9])
+        with col_back:
+            if st.button("← 戻る", use_container_width=True):
+                st.session_state.selected_doc_id = None
+                st.rerun()
+        with col_title:
+            st.markdown("### 📄 詳細情報")
         st.markdown("---")
-    
-    # 詳細表示モード
-    if st.session_state.selected_doc_id:
         doc_id = st.session_state.selected_doc_id
         with st.spinner("データを取得中..."):
             full_master_data = get_master_data(_s3_client=s3_client, doc_id=doc_id)
@@ -713,6 +715,44 @@ if st.session_state.search_results:
     
     # リスト表示モード
     else:
+        # 時間形式を変換する関数
+        def format_time_display(time_str):
+            """時間形式を変換（YYYYMMDDHHMM -> HH:MM）"""
+            if not time_str or time_str == 'N/A':
+                return 'N/A'
+            try:
+                # YYYYMMDDHHMM形式の場合
+                if len(time_str) >= 12:
+                    hour = time_str[8:10]
+                    minute = time_str[10:12]
+                    return f"{hour}:{minute}"
+                # HHMM形式の場合
+                elif len(time_str) >= 4:
+                    hour = time_str[:2]
+                    minute = time_str[2:4]
+                    return f"{hour}:{minute}"
+                # HH:MM形式の場合
+                elif ':' in time_str:
+                    return time_str
+                else:
+                    return time_str
+            except Exception:
+                return time_str
+        
+        # 日付形式を変換する関数
+        def format_date_display(date_str):
+            """日付形式を変換（YYYYMMDD -> YYYY/MM/DD）"""
+            if not date_str or date_str == 'N/A':
+                return 'N/A'
+            try:
+                # YYYYMMDD形式の場合
+                if len(date_str) >= 8 and date_str.isdigit():
+                    return f"{date_str[:4]}/{date_str[4:6]}/{date_str[6:8]}"
+                else:
+                    return date_str
+            except Exception:
+                return date_str
+        
         # 結果をテーブル形式で表示
         results_data = []
         for idx, master in enumerate(st.session_state.search_results):
@@ -723,17 +763,26 @@ if st.session_state.search_results:
             date_str = metadata.get('date', 'N/A')
             start_time = metadata.get('start_time', 'N/A')
             end_time = metadata.get('end_time', 'N/A')
-            time_range = f"{start_time} - {end_time}" if start_time != 'N/A' and end_time != 'N/A' else start_time
+            
+            # 時間形式を変換
+            start_time_display = format_time_display(str(start_time))
+            end_time_display = format_time_display(str(end_time))
+            time_range = f"{start_time_display} - {end_time_display}" if start_time_display != 'N/A' and end_time_display != 'N/A' else (start_time_display if start_time_display != 'N/A' else end_time_display)
+            
+            # 日付形式を変換
+            date_display = format_date_display(str(date_str))
             
             # 放送局
-            channel = metadata.get('channel', 'N/A')
+            channel = str(metadata.get('channel', 'N/A'))
             
             # 番組名
-            program_name = metadata.get('program_name', 'N/A')
+            program_name = str(metadata.get('program_name', metadata.get('title', 'N/A')))
+            if len(program_name) > 20:
+                program_name = program_name[:20] + "..."
             
             results_data.append({
                 'No.': idx + 1,
-                '放送日時': date_str,
+                '放送日時': date_display,
                 '時間': time_range,
                 '放送局': channel,
                 '番組名': program_name,
@@ -744,7 +793,7 @@ if st.session_state.search_results:
         for idx, row in enumerate(results_data):
             with st.container():
                 # カード形式で表示
-                col1, col2, col3, col4, col5 = st.columns([0.5, 1.5, 1.5, 2, 1])
+                col1, col2, col3, col4, col5, col6 = st.columns([0.3, 1.2, 1.5, 1.5, 2, 0.8])
                 
                 with col1:
                     st.write(f"**{row['No.']}**")
@@ -761,10 +810,11 @@ if st.session_state.search_results:
                 with col5:
                     st.write(f"📺 {row['番組名']}")
                 
-                # 詳細ボタン
-                if st.button(f"詳細を見る", key=f"detail_{row['doc_id']}"):
-                    st.session_state.selected_doc_id = row['doc_id']
-                    st.rerun()
+                with col6:
+                    # 詳細ボタン（新しいタブで開くリンク風）
+                    if st.button(f"詳細", key=f"detail_{row['doc_id']}", use_container_width=True):
+                        st.session_state.selected_doc_id = row['doc_id']
+                        st.rerun()
                 
                 st.markdown("---")
 
