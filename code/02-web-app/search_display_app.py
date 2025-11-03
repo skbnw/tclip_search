@@ -2,7 +2,7 @@
 S3データ検索・表示Webアプリ
 
 Streamlitを使用して、S3バケット内のデータを検索・表示します。
-- 番組ID（doc_id）で検索
+- 日付・時間・放送局・キーワードで検索
 - マスターデータの表示
 - チャンクデータの表示
 - 画像の表示
@@ -15,7 +15,7 @@ import sys
 import os
 from typing import Dict, List, Optional
 from io import BytesIO
-from datetime import date, time
+from datetime import date, time, datetime, timedelta
 
 # Windows環境での文字エンコーディング対応
 if sys.platform == 'win32':
@@ -209,48 +209,100 @@ def get_search_options(_s3_client) -> Dict[str, List[str]]:
             'channels': sorted(list(channels))
         }
     except Exception as e:
+        st.error(f"検索オプションの取得エラー: {str(e)}")
         return {'dates': [], 'times': [], 'channels': []}
+
+# 30分単位の時間リスト生成
+def generate_time_options():
+    """30分単位の時間オプションを生成"""
+    times = []
+    for hour in range(24):
+        for minute in [0, 30]:
+            time_obj = time(hour, minute)
+            times.append(time_obj)
+    return times
+
+# 時間の近似検索（30分単位で最も近い時間を探す）
+def find_nearest_time(target_time: time, time_list: List[str]) -> Optional[str]:
+    """30分単位で最も近い時間を探す"""
+    if not target_time or not time_list:
+        return None
+    
+    # 時間を分に変換
+    target_minutes = target_time.hour * 60 + target_time.minute
+    
+    nearest_time = None
+    min_diff = float('inf')
+    
+    for time_str in time_list:
+        try:
+            # 時間文字列を解析（HHMM形式またはHH:MM形式）
+            if ':' in time_str:
+                parts = time_str.split(':')
+                time_minutes = int(parts[0]) * 60 + int(parts[1])
+            else:
+                if len(time_str) >= 4:
+                    time_minutes = int(time_str[:2]) * 60 + int(time_str[2:4])
+                else:
+                    continue
+            
+            # 30分単位に丸める
+            rounded_minutes = round(time_minutes / 30) * 30
+            diff = abs(target_minutes - rounded_minutes)
+            
+            # ±30分以内かチェック
+            if diff <= 30 and diff < min_diff:
+                min_diff = diff
+                nearest_time = time_str
+        except (ValueError, IndexError):
+            continue
+    
+    return nearest_time
 
 # 検索フォーム
 with st.form("search_form"):
     st.subheader("検索条件")
     
-    # 上部: 日付、時間、放送局
+    # 上部: 放送局、日付、時間
     search_options = get_search_options(_s3_client=s3_client)
     
-    # 3列レイアウト
-    col1, col2, col3 = st.columns(3)
+    # 3列レイアウト（均等配置）
+    col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
         # 放送局（選択式）
+        channel_options = ["すべて"]
+        if search_options['channels']:
+            channel_options.extend(search_options['channels'])
+        else:
+            # チャンネル情報がない場合でも表示
+            st.warning("⚠️ 放送局データを読み込み中...")
+        
         channel = st.selectbox(
             "放送局",
-            options=["すべて"] + search_options['channels'],
+            options=channel_options,
             help="放送局を選択してください"
         )
     
     with col2:
         # 日付
-        st.markdown("**📆 日付**")
         selected_date = st.date_input(
-            "日付を選択",
+            "📆 日付",
             value=None,
-            help="カレンダーから日付を選択してください",
-            key="date_input",
-            label_visibility="collapsed"
+            help="カレンダーから日付を選択してください（任意）",
+            key="date_input"
         )
         date_str = selected_date.strftime("%Y%m%d") if selected_date else None
     
     with col3:
-        # 時間
-        st.markdown("**🕐 時間**")
-        default_time = time(0, 0)  # 00:00をデフォルト
-        selected_time = st.time_input(
-            "時間を選択",
-            value=default_time,
-            help="時間を選択してください（時:分形式）",
-            key="time_input",
-            label_visibility="collapsed"
+        # 時間（30分単位）
+        time_options = generate_time_options()
+        selected_time = st.selectbox(
+            "🕐 時間",
+            options=[None] + time_options,
+            format_func=lambda x: x.strftime("%H:%M") if x else "選択なし",
+            help="時間を選択してください（30分単位、任意）",
+            key="time_input"
         )
         time_str = selected_time.strftime("%H%M") if selected_time else None
     
@@ -259,7 +311,7 @@ with st.form("search_form"):
     # 下部: キーワード
     keyword = st.text_input(
         "キーワード（全文・チャンクテキスト検索）",
-        placeholder="キーワードを入力してください",
+        placeholder="キーワードを入力してください（任意）",
         help="全文テキストとチャンクテキストから検索します"
     )
     
@@ -268,6 +320,12 @@ with st.form("search_form"):
     
     # program_idは削除（使用しない）
     program_id = ""
+
+# セッションステートの初期化（詳細表示用）
+if 'selected_doc_id' not in st.session_state:
+    st.session_state.selected_doc_id = None
+if 'search_results' not in st.session_state:
+    st.session_state.search_results = []
 
 # データ取得関数
 @st.cache_data(ttl=300)  # 5分間キャッシュ
@@ -310,17 +368,24 @@ def get_chunk_data(_s3_client, doc_id: str) -> List[Dict]:
 
 @st.cache_data(ttl=300)
 def list_images(_s3_client, doc_id: str) -> List[str]:
-    """画像ファイル一覧を取得"""
+    """画像URLのリストを取得"""
     try:
         prefix = f"{S3_IMAGE_PREFIX}{doc_id}/"
         response = _s3_client.list_objects_v2(Bucket=S3_BUCKET_NAME, Prefix=prefix)
         
-        images = []
+        image_urls = []
         if 'Contents' in response:
             for obj in response['Contents']:
-                if obj['Key'].endswith('.jpeg') or obj['Key'].endswith('.jpg'):
-                    images.append(obj['Key'])
-        return sorted(images)
+                key = obj['Key']
+                if key.endswith(('.jpeg', '.jpg', '.png')):
+                    # 署名付きURLを生成（1時間有効）
+                    url = _s3_client.generate_presigned_url(
+                        'get_object',
+                        Params={'Bucket': S3_BUCKET_NAME, 'Key': key},
+                        ExpiresIn=3600
+                    )
+                    image_urls.append(url)
+        return image_urls
     except Exception as e:
         st.error(f"画像一覧の取得エラー: {str(e)}")
         return []
@@ -356,9 +421,10 @@ def search_master_data_advanced(
     date_str: str = "",
     time_str: str = "",
     channel: str = "",
-    keyword: str = ""
+    keyword: str = "",
+    time_tolerance_minutes: int = 30
 ) -> List[Dict]:
-    """マスターデータを詳細条件で検索"""
+    """マスターデータを詳細条件で検索（時間近似検索対応）"""
     results = []
     
     for master in master_list:
@@ -368,12 +434,6 @@ def search_master_data_advanced(
         # 各条件でフィルタリング
         match = True
         
-        # 番組IDでフィルタ
-        if program_id and program_id.strip():
-            if program_id.strip().lower() not in doc_id.lower():
-                match = False
-                continue
-        
         # 日付でフィルタ
         if date_str:
             master_date = str(metadata.get('date', ''))
@@ -382,13 +442,62 @@ def search_master_data_advanced(
                 match = False
                 continue
         
-        # 時間でフィルタ
+        # 時間でフィルタ（近似検索）
         if time_str:
             start_time = str(metadata.get('start_time', ''))
             end_time = str(metadata.get('end_time', ''))
-            # 時間形式を変換して比較（HHMM形式）
-            # 開始時間または終了時間に一致するか確認
-            if time_str not in start_time and time_str not in end_time:
+            
+            # 目標時間を分に変換
+            try:
+                target_hour = int(time_str[:2])
+                target_minute = int(time_str[2:4])
+                target_minutes = target_hour * 60 + target_minute
+            except (ValueError, IndexError):
+                match = False
+                continue
+            
+            # 開始時間と終了時間をチェック
+            time_match = False
+            
+            # 開始時間をチェック
+            if start_time:
+                try:
+                    if ':' in start_time:
+                        parts = start_time.split(':')
+                        start_minutes = int(parts[0]) * 60 + int(parts[1])
+                    else:
+                        if len(start_time) >= 4:
+                            start_minutes = int(start_time[:2]) * 60 + int(start_time[2:4])
+                        else:
+                            start_minutes = None
+                    
+                    if start_minutes is not None:
+                        diff = abs(target_minutes - start_minutes)
+                        if diff <= time_tolerance_minutes:
+                            time_match = True
+                except (ValueError, IndexError):
+                    pass
+            
+            # 終了時間をチェック
+            if not time_match and end_time:
+                try:
+                    if ':' in end_time:
+                        parts = end_time.split(':')
+                        end_minutes = int(parts[0]) * 60 + int(parts[1])
+                    else:
+                        if len(end_time) >= 4:
+                            end_minutes = int(end_time[:2]) * 60 + int(end_time[2:4])
+                        else:
+                            end_minutes = None
+                    
+                    if end_minutes is not None:
+                        diff = abs(target_minutes - end_minutes)
+                        if diff <= time_tolerance_minutes:
+                            time_match = True
+                except (ValueError, IndexError):
+                    pass
+            
+            if not time_match:
                 match = False
                 continue
         
@@ -402,18 +511,8 @@ def search_master_data_advanced(
         # キーワードでフィルタ（全文とチャンクテキスト）
         if keyword and keyword.strip():
             keyword_lower = keyword.strip().lower()
-            keyword_match = False
-            
-            # 全文テキストで検索
             full_text = master.get('full_text', '').lower()
-            if keyword_lower in full_text:
-                keyword_match = True
-            
-            # チャンクテキストで検索（チャンクデータを取得する必要がある）
-            # ただし、全チャンクを取得するのは重いので、ここではマスターデータのみチェック
-            # チャンク検索は別途実装する
-            
-            if not keyword_match:
+            if keyword_lower not in full_text:
                 match = False
                 continue
         
@@ -429,12 +528,13 @@ def search_master_data_with_chunks(
     date_str: str = "",
     time_str: str = "",
     channel: str = "",
-    keyword: str = ""
+    keyword: str = "",
+    time_tolerance_minutes: int = 30
 ) -> List[Dict]:
     """マスターデータとチャンクテキストを含む詳細検索（最適化版）"""
     # まず基本条件でフィルタ
     filtered_masters = search_master_data_advanced(
-        master_list, program_id, date_str, time_str, channel, ""
+        master_list, program_id, date_str, time_str, channel, "", time_tolerance_minutes
     )
     
     # キーワードが指定されている場合、全文テキストでフィルタリング
@@ -443,201 +543,109 @@ def search_master_data_with_chunks(
         results = []
         
         # まず全文テキストでフィルタリング（高速）
-        full_text_matches = []
-        chunk_candidates = []
-        
         for master in filtered_masters:
             full_text = master.get('full_text', '').lower()
             if keyword_lower in full_text:
-                full_text_matches.append(master)
+                results.append(master)
             else:
-                # 全文テキストにマッチしない場合のみ、チャンク検索の候補に
-                chunk_candidates.append(master)
-        
-        results.extend(full_text_matches)
-        
-        # チャンクテキストで検索（全文テキストにマッチしなかったもののみ）
-        # 大量のデータの場合は、全文テキストでのマッチを優先し、チャンク検索を最小化
-        if chunk_candidates:
-            for master in chunk_candidates:
-                doc_id = master.get('doc_id', '')
-                keyword_match = False
-                
+                # 全文テキストにマッチしない場合、チャンク検索
                 try:
-                    # チャンクデータを取得
-                    chunks = get_chunk_data(_s3_client=_s3_client, doc_id=doc_id)
-                    
-                    # チャンクテキストで検索（最初にマッチしたら即座に終了）
+                    doc_id = master.get('doc_id', '')
+                    chunks = get_chunk_data(_s3_client, doc_id)
                     for chunk in chunks:
                         chunk_text = chunk.get('text', '').lower()
                         if keyword_lower in chunk_text:
-                            keyword_match = True
+                            results.append(master)
                             break
-                except:
-                    pass  # チャンク取得エラーは無視
-                
-                if keyword_match:
-                    results.append(master)
+                except Exception:
+                    continue
         
         return results
     
     return filtered_masters
 
-def get_image_url(s3_client, key: str, expires_in: int = 3600) -> str:
-    """画像のプリサインドURLを生成"""
-    try:
-        url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': S3_BUCKET_NAME, 'Key': key},
-            ExpiresIn=expires_in
-        )
-        return url
-    except Exception as e:
-        st.error(f"画像URLの生成エラー: {str(e)}")
-        return ""
-
 def display_master_data(master_data, chunks, images, doc_id):
-    """マスターデータを表示"""
-    if master_data is None and not chunks and not images:
-        st.info("データが見つかりませんでした")
+    """マスターデータ、チャンク、画像を表示"""
+    if not master_data:
+        st.warning("データが見つかりませんでした")
         return
     
+    # メタデータの表示
+    metadata = master_data.get('metadata', {})
+    
+    st.subheader("📋 マスターデータ")
+    
+    # メタ情報をカード形式で表示
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        if 'date' in metadata:
+            st.metric("放送日", metadata.get('date', 'N/A'))
+    with col2:
+        if 'start_time' in metadata or 'end_time' in metadata:
+            time_range = f"{metadata.get('start_time', 'N/A')} - {metadata.get('end_time', 'N/A')}"
+            st.metric("時間", time_range)
+    with col3:
+        if 'channel' in metadata:
+            st.metric("放送局", metadata.get('channel', 'N/A'))
+    with col4:
+        if 'program_name' in metadata:
+            st.metric("番組名", metadata.get('program_name', 'N/A'))
+    
+    st.markdown("---")
+    
     # タブで表示
-    tab1, tab2, tab3 = st.tabs(["📄 マスターデータ", "📝 チャンクデータ", "🖼️ 画像"])
+    tab1, tab2, tab3 = st.tabs(["📄 全文", "📑 チャンク", "🖼️ 画像"])
     
-    # タブ1: マスターデータ
     with tab1:
-        if master_data:
-            st.subheader("メタデータ")
-            
-            # メタデータの表示
-            if 'metadata' in master_data:
-                metadata = master_data['metadata']
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.json(metadata)
-                
-                with col2:
-                    st.write("### 主要情報")
-                    if 'event_id' in metadata:
-                        st.write(f"**Event ID**: `{metadata['event_id']}`")
-                    if 'channel' in metadata:
-                        st.write(f"**Channel**: {metadata['channel']}")
-                    if 'date' in metadata:
-                        st.write(f"**Date**: {metadata['date']}")
-            
-            st.markdown("---")
-            st.subheader("フルテキスト")
-            
-            if 'full_text' in master_data:
-                full_text = master_data['full_text']
-                st.text_area(
-                    "全文",
-                    full_text,
-                    height=300,
-                    disabled=True,
-                    help="番組全体のテキスト"
-                )
-                st.caption(f"文字数: {len(full_text):,} 文字")
-            else:
-                st.info("フルテキストがありません")
-            
-            # 画像URLがある場合
-            if 'image_urls' in master_data and master_data['image_urls']:
-                st.markdown("---")
-                st.subheader("関連画像")
-                st.write(f"画像数: {len(master_data['image_urls'])} 枚")
+        st.subheader("全文テキスト")
+        if 'full_text' in master_data:
+            st.text_area("", value=master_data['full_text'], height=400, key=f"full_text_{doc_id}")
         else:
-            st.info("マスターデータが見つかりませんでした")
+            st.info("全文テキストがありません")
     
-    # タブ2: チャンクデータ
     with tab2:
+        st.subheader("チャンクデータ")
         if chunks:
-            st.subheader(f"チャンクデータ ({len(chunks)} 個)")
-            
-            # チャンク検索（ユニークなキーを付与）
-            chunk_search = st.text_input(
-                "チャンク内を検索", 
-                placeholder="キーワードを入力",
-                key=f"chunk_search_{doc_id}"
+            # チャンク検索
+            chunk_keyword = st.text_input(
+                "チャンク内検索",
+                key=f"chunk_search_{doc_id}",
+                placeholder="キーワードを入力してください"
             )
             
-            # フィルタリング
             filtered_chunks = chunks
-            if chunk_search:
-                filtered_chunks = [
-                    chunk for chunk in chunks
-                    if chunk_search.lower() in chunk.get('text', '').lower()
-                ]
-                st.caption(f"検索結果: {len(filtered_chunks)} / {len(chunks)} 個のチャンク")
+            if chunk_keyword:
+                keyword_lower = chunk_keyword.lower()
+                filtered_chunks = [chunk for chunk in chunks if keyword_lower in chunk.get('text', '').lower()]
             
-            # チャンク表示
-            for i, chunk in enumerate(filtered_chunks):
-                with st.expander(f"チャンク {i+1}: {chunk.get('chunk_id', 'N/A')}"):
-                    col1, col2 = st.columns([3, 1])
-                    
-                    with col1:
-                        st.write("**テキスト**:")
-                        st.write(chunk.get('text', ''))
-                    
-                    with col2:
-                        st.write("**メタデータ**:")
-                        if 'metadata' in chunk:
-                            metadata = chunk['metadata']
-                            if 'start_time' in metadata:
-                                st.write(f"開始時刻: {metadata['start_time']}")
-                            if 'end_time' in metadata:
-                                st.write(f"終了時刻: {metadata['end_time']}")
-                            if 'original_file_path' in metadata:
-                                st.caption(f"パス: {metadata['original_file_path']}")
-                    
-                    st.caption(f"文字数: {len(chunk.get('text', ''))} 文字")
+            st.info(f"チャンク数: {len(chunks)} (表示: {len(filtered_chunks)})")
+            
+            for idx, chunk in enumerate(filtered_chunks):
+                with st.expander(f"チャンク {idx+1}", expanded=False):
+                    st.write(chunk.get('text', ''))
+                    if 'metadata' in chunk:
+                        st.json(chunk['metadata'])
         else:
-            st.info("チャンクデータが見つかりませんでした")
+            st.info("チャンクデータがありません")
     
-    # タブ3: 画像
     with tab3:
+        st.subheader("画像")
         if images:
-            st.subheader(f"画像 ({len(images)} 枚)")
-            
-            # 画像をグリッド表示
+            st.info(f"画像数: {len(images)}")
+            # グリッド表示（3列）
             cols = st.columns(3)
-            for idx, image_key in enumerate(images):
-                col = cols[idx % 3]
-                
-                with col:
+            for idx, img_url in enumerate(images):
+                with cols[idx % 3]:
                     try:
-                        image_url = get_image_url(s3_client, image_key)
-                        if image_url:
-                            st.image(image_url, use_container_width=True)
-                            filename = image_key.split('/')[-1]
-                            st.caption(filename)
-                        else:
-                            st.error("画像の読み込みに失敗しました")
+                        st.image(img_url, caption=f"画像 {idx+1}", use_container_width=True)
                     except Exception as e:
-                        st.error(f"エラー: {str(e)}")
+                        st.error(f"画像の読み込みエラー: {str(e)}")
         else:
-            st.info("画像が見つかりませんでした")
-    
-    # 統計情報
-    st.markdown("---")
-    st.subheader("📊 統計情報")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("マスターデータ", "あり" if master_data else "なし")
-    with col2:
-        st.metric("チャンク数", len(chunks))
-    with col3:
-        st.metric("画像数", len(images))
-    with col4:
-        if master_data and 'full_text' in master_data:
-            st.metric("文字数", f"{len(master_data['full_text']):,}")
+            st.info("画像がありません")
 
 # 検索実行
 if search_button:
-    # 検索条件をチェック
+    # 検索条件をチェック（キーワードだけでも検索可能）
     if not date_str and not time_str and (not channel or channel == "すべて") and not keyword:
         st.warning("⚠️ 検索条件を1つ以上入力してください")
     else:
@@ -667,65 +675,114 @@ if search_button:
                     date_str=date_str if date_str else "",
                     time_str=time_str if time_str else "",
                     channel=channel if channel != "すべて" else "",
-                    keyword=keyword
+                    keyword=keyword,
+                    time_tolerance_minutes=30  # 30分以内の近似検索
                 )
+            
+            # 検索結果をセッションステートに保存
+            st.session_state.search_results = search_results
+            
+            if not search_results:
+                st.warning("⚠️ 検索条件に一致するデータが見つかりませんでした")
+            else:
+                st.success(f"✅ {len(search_results)} 件のデータが見つかりました")
+                st.markdown("---")
+
+# 検索結果のリスト表示（詳細表示前に）
+if st.session_state.search_results:
+    st.subheader("📋 検索結果")
+    
+    # 戻るボタン（詳細表示時）
+    if st.session_state.selected_doc_id:
+        if st.button("← 検索結果一覧に戻る"):
+            st.session_state.selected_doc_id = None
+            st.rerun()
+        st.markdown("---")
+    
+    # 詳細表示モード
+    if st.session_state.selected_doc_id:
+        doc_id = st.session_state.selected_doc_id
+        with st.spinner("データを取得中..."):
+            full_master_data = get_master_data(_s3_client=s3_client, doc_id=doc_id)
+            chunks = get_chunk_data(_s3_client=s3_client, doc_id=doc_id)
+            images = list_images(_s3_client=s3_client, doc_id=doc_id)
+        
+        display_master_data(full_master_data, chunks, images, doc_id)
+    
+    # リスト表示モード
+    else:
+        # 結果をテーブル形式で表示
+        results_data = []
+        for idx, master in enumerate(st.session_state.search_results):
+            doc_id = master.get('doc_id', 'N/A')
+            metadata = master.get('metadata', {})
+            
+            # 放送日時・時間
+            date_str = metadata.get('date', 'N/A')
+            start_time = metadata.get('start_time', 'N/A')
+            end_time = metadata.get('end_time', 'N/A')
+            time_range = f"{start_time} - {end_time}" if start_time != 'N/A' and end_time != 'N/A' else start_time
+            
+            # 放送局
+            channel = metadata.get('channel', 'N/A')
+            
+            # 番組名
+            program_name = metadata.get('program_name', 'N/A')
+            
+            results_data.append({
+                'No.': idx + 1,
+                '放送日時': date_str,
+                '時間': time_range,
+                '放送局': channel,
+                '番組名': program_name,
+                'doc_id': doc_id
+            })
+        
+        # テーブル表示（クリック可能にするためにカスタム表示）
+        for idx, row in enumerate(results_data):
+            with st.container():
+                # カード形式で表示
+                col1, col2, col3, col4, col5 = st.columns([0.5, 1.5, 1.5, 2, 1])
                 
-                if not search_results:
-                    st.warning("⚠️ 検索条件に一致するデータが見つかりませんでした")
-                else:
-                    st.success(f"✅ {len(search_results)} 件のデータが見つかりました")
-                    st.markdown("---")
-                    
-                    # 検索結果の表示
-                    for idx, master in enumerate(search_results):
-                        doc_id = master.get('doc_id', 'N/A')
-                        metadata = master.get('metadata', {})
-                        
-                        # 結果のヘッダー情報
-                        result_header = f"結果 {idx+1}: {doc_id}"
-                        if 'channel' in metadata:
-                            result_header += f" ({metadata['channel']})"
-                        if 'date' in metadata:
-                            result_header += f" - {metadata['date']}"
-                        
-                        with st.expander(result_header, expanded=(idx == 0)):
-                            # このデータの詳細を表示
-                            with st.spinner("データを取得中..."):
-                                full_master_data = get_master_data(_s3_client=s3_client, doc_id=doc_id)
-                                chunks = get_chunk_data(_s3_client=s3_client, doc_id=doc_id)
-                                images = list_images(_s3_client=s3_client, doc_id=doc_id)
-                            
-                            display_master_data(full_master_data, chunks, images, doc_id)
+                with col1:
+                    st.write(f"**{row['No.']}**")
+                
+                with col2:
+                    st.write(f"📅 {row['放送日時']}")
+                
+                with col3:
+                    st.write(f"🕐 {row['時間']}")
+                
+                with col4:
+                    st.write(f"📺 {row['放送局']}")
+                
+                with col5:
+                    st.write(f"📺 {row['番組名']}")
+                
+                # 詳細ボタン
+                if st.button(f"詳細を見る", key=f"detail_{row['doc_id']}"):
+                    st.session_state.selected_doc_id = row['doc_id']
+                    st.rerun()
+                
+                st.markdown("---")
 
 else:
     # 初期状態の説明
     st.info("👈 サイドバーでAWS認証情報を設定し、検索条件を入力して検索してください")
     
     st.markdown("---")
-    st.subheader("📖 使い方")
+    
     st.markdown("""
-    1. **AWS認証情報の設定**
-       - サイドバーで「環境変数を使用」にチェック（環境変数を設定した場合）
-       - または、Access Key IDとSecret Access Keyを直接入力
+    ## 📖 使い方
     
-    2. **検索条件の入力**
-       - **番組ID**: 番組ID（doc_id）を直接入力
-       - **日付**: ドロップダウンから日付を選択（「すべて」を選択すると全件）
-       - **時間**: ドロップダウンから時間を選択（「すべて」を選択すると全件）
-       - **放送局**: ドロップダウンから放送局を選択（「すべて」を選択すると全件）
-       - **キーワード**: 全文テキストとチャンクテキストから検索
+    1. **検索条件を入力**
+       - 放送局、日付、時間、キーワードから選択
+       - すべて任意項目です（1つ以上入力してください）
     
-    3. **検索の実行**
-       - 「🔍 検索」ボタンをクリック
-       - 複数の条件を組み合わせて検索可能
+    2. **検索結果を確認**
+       - 検索結果がリスト形式で表示されます
+       - 「詳細を見る」ボタンをクリックして詳細情報を表示
     
-    4. **データの表示**
-       - **マスターデータタブ**: 番組のメタデータと全文テキスト
-       - **チャンクデータタブ**: セグメント単位のチャンク（チャンク内検索機能あり）
-       - **画像タブ**: screenshots配列に含まれる画像
+    3. **詳細情報の閲覧**
+       - 全文テキスト、チャンクデータ、画像を確認できます
     """)
-
-# フッター
-st.markdown("---")
-st.caption(f"バケット: {S3_BUCKET_NAME} | リージョン: {S3_REGION}")
-
