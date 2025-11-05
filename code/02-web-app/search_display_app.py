@@ -166,7 +166,7 @@ if s3_client is None:
 # メインコンテンツ
 
 # データ取得関数（検索オプション取得で使用するため先に定義）
-@st.cache_data(ttl=600)  # 10分間キャッシュ（全データリストは重いため）
+@st.cache_data(ttl=3600)  # 1時間キャッシュ（全データリストは重いため）
 def list_all_master_data(_s3_client) -> List[Dict]:
     """全マスターデータのリストを取得（検索用）"""
     try:
@@ -174,17 +174,35 @@ def list_all_master_data(_s3_client) -> List[Dict]:
         
         master_list = []
         if 'Contents' in response:
-            for obj in response['Contents']:
+            total_files = len(response['Contents'])
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for idx, obj in enumerate(response['Contents']):
                 try:
+                    # 進捗表示
+                    if idx % 10 == 0 or idx == total_files - 1:
+                        progress = (idx + 1) / total_files
+                        progress_bar.progress(progress)
+                        status_text.text(f"データ読み込み中: {idx + 1}/{total_files} ファイル")
+                    
                     # オブジェクトを取得
                     file_response = _s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=obj['Key'])
                     content = file_response['Body'].read().decode('utf-8')
                     lines = content.strip().split('\n')
                     if lines:
                         master_data = json.loads(lines[0])
+                        # 全文テキストは検索時にのみ使用するため、ここでは除外してメモリ節約
+                        # ただし、メタデータは保持
+                        if 'full_text' in master_data:
+                            # 全文テキストは保持（キーワード検索で必要）
+                            pass
                         master_list.append(master_data)
                 except Exception as e:
                     continue  # エラーが発生したファイルはスキップ
+            
+            progress_bar.empty()
+            status_text.empty()
         
         return master_list
     except Exception as e:
@@ -192,7 +210,7 @@ def list_all_master_data(_s3_client) -> List[Dict]:
         return []
 
 # 検索オプションの取得（初回のみ読み込み）
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=3600)  # 1時間キャッシュ
 def get_search_options(_s3_client) -> Dict[str, List[str]]:
     """検索用のオプション（日付、時間、放送局）を取得"""
     try:
@@ -534,7 +552,7 @@ def search_master_data_with_chunks(
     time_tolerance_minutes: int = 30
 ) -> List[Dict]:
     """マスターデータとチャンクテキストを含む詳細検索（最適化版）"""
-    # まず基本条件でフィルタ
+    # まず基本条件でフィルタ（メタデータのみで高速）
     filtered_masters = search_master_data_advanced(
         master_list, program_id, date_str, time_str, channel, "", time_tolerance_minutes
     )
@@ -544,13 +562,31 @@ def search_master_data_with_chunks(
         keyword_lower = keyword.strip().lower()
         results = []
         
+        # 進捗表示用
+        total = len(filtered_masters)
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
         # まず全文テキストでフィルタリング（高速）
-        for master in filtered_masters:
+        chunk_search_candidates = []
+        for idx, master in enumerate(filtered_masters):
+            # 進捗表示（10件ごと）
+            if idx % 10 == 0 or idx == total - 1:
+                progress = (idx + 1) / total
+                progress_bar.progress(progress)
+                status_text.text(f"キーワード検索中: {idx + 1}/{total} 件")
+            
             full_text = master.get('full_text', '').lower()
             if keyword_lower in full_text:
                 results.append(master)
             else:
-                # 全文テキストにマッチしない場合、チャンク検索
+                # 全文テキストにマッチしない場合のみ、チャンク検索の候補に
+                chunk_search_candidates.append(master)
+        
+        # チャンク検索（全文テキストにマッチしなかったもののみ）
+        if chunk_search_candidates:
+            status_text.text(f"チャンクデータ検索中: {len(chunk_search_candidates)} 件...")
+            for idx, master in enumerate(chunk_search_candidates):
                 try:
                     doc_id = master.get('doc_id', '')
                     chunks = get_chunk_data(_s3_client, doc_id)
@@ -561,6 +597,9 @@ def search_master_data_with_chunks(
                             break
                 except Exception:
                     continue
+        
+        progress_bar.empty()
+        status_text.empty()
         
         return results
     
@@ -651,8 +690,8 @@ if search_button:
     if not date_str and not time_str and (not channel or channel == "すべて") and not keyword:
         st.warning("⚠️ 検索条件を1つ以上入力してください")
     else:
-        # 全データから検索
-        with st.spinner("全データを読み込み中...（初回は時間がかかります）"):
+        # 全データから検索（キャッシュを活用）
+        with st.spinner("データを読み込み中...（初回のみ時間がかかります）"):
             all_masters = list_all_master_data(_s3_client=s3_client)
         
         if not all_masters:
