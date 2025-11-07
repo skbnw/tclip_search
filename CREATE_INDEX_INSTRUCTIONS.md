@@ -12,7 +12,7 @@ PowerShellで以下を実行してください：
 # 仮想環境をアクティベート
 .\venv\Scripts\Activate.ps1
 
-# AWS認証情報を設定
+# AWS認証情報を設定（環境変数またはStreamlit Secretsで設定済みの場合は不要）
 $env:AWS_ACCESS_KEY_ID="YOUR_AWS_ACCESS_KEY_ID"
 $env:AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET_ACCESS_KEY"
 $env:AWS_DEFAULT_REGION="ap-northeast-1"
