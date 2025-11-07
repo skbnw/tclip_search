@@ -165,10 +165,35 @@ if s3_client is None:
 
 # メインコンテンツ
 
-# データ取得関数（検索オプション取得で使用するため先に定義）
-@st.cache_data(ttl=3600)  # 1時間キャッシュ（全データリストは重いため）
-def list_all_master_data(_s3_client) -> List[Dict]:
-    """全マスターデータのリストを取得（検索用）"""
+# インデックスファイルのパス
+S3_INDEX_FILE = "rag/search_index/master_index.jsonl"
+
+# データ取得関数（インデックスを使用）
+@st.cache_data(ttl=3600)  # 1時間キャッシュ
+def load_search_index(_s3_client) -> List[Dict]:
+    """検索用インデックスを読み込み（軽量版）"""
+    try:
+        # インデックスファイルを取得
+        response = _s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=S3_INDEX_FILE)
+        content = response['Body'].read().decode('utf-8')
+        
+        index_list = []
+        for line in content.strip().split('\n'):
+            if line:
+                index_list.append(json.loads(line))
+        
+        return index_list
+    except _s3_client.exceptions.NoSuchKey:
+        # インデックスファイルが存在しない場合は従来の方法で取得
+        st.warning("⚠️ インデックスファイルが見つかりません。従来の方法でデータを読み込みます...")
+        return list_all_master_data_fallback(_s3_client)
+    except Exception as e:
+        st.error(f"インデックス読み込みエラー: {str(e)}")
+        return list_all_master_data_fallback(_s3_client)
+
+@st.cache_data(ttl=3600)  # 1時間キャッシュ（フォールバック用）
+def list_all_master_data_fallback(_s3_client) -> List[Dict]:
+    """全マスターデータのリストを取得（フォールバック、インデックスがない場合）"""
     try:
         response = _s3_client.list_objects_v2(Bucket=S3_BUCKET_NAME, Prefix=S3_MASTER_PREFIX)
         
@@ -192,11 +217,6 @@ def list_all_master_data(_s3_client) -> List[Dict]:
                     lines = content.strip().split('\n')
                     if lines:
                         master_data = json.loads(lines[0])
-                        # 全文テキストは検索時にのみ使用するため、ここでは除外してメモリ節約
-                        # ただし、メタデータは保持
-                        if 'full_text' in master_data:
-                            # 全文テキストは保持（キーワード検索で必要）
-                            pass
                         master_list.append(master_data)
                 except Exception as e:
                     continue  # エラーが発生したファイルはスキップ
@@ -208,6 +228,11 @@ def list_all_master_data(_s3_client) -> List[Dict]:
     except Exception as e:
         st.error(f"全マスターデータの取得エラー: {str(e)}")
         return []
+
+# 後方互換性のため、list_all_master_dataをインデックス版に置き換え
+def list_all_master_data(_s3_client) -> List[Dict]:
+    """全マスターデータのリストを取得（インデックスを使用）"""
+    return load_search_index(_s3_client)
 
 # 検索オプションの取得（初回のみ読み込み）
 @st.cache_data(ttl=3600)  # 1時間キャッシュ
@@ -576,7 +601,15 @@ def search_master_data_with_chunks(
                 progress_bar.progress(progress)
                 status_text.text(f"キーワード検索中: {idx + 1}/{total} 件")
             
-            full_text = master.get('full_text', '').lower()
+            # インデックスにはfull_text_previewが含まれている
+            full_text_preview = master.get('full_text_preview', '').lower()
+            # 全文テキストがインデックスに含まれている場合はそれを使用
+            if 'full_text' in master:
+                full_text = master.get('full_text', '').lower()
+            else:
+                # インデックス版の場合、previewで検索
+                full_text = full_text_preview
+            
             if keyword_lower in full_text:
                 results.append(master)
             else:
