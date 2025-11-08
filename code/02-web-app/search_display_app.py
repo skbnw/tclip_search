@@ -787,9 +787,15 @@ def search_master_data_with_chunks(
 ) -> List[Dict]:
     """マスターデータとチャンクテキストを含む詳細検索（最適化版）"""
     # まず基本条件でフィルタ（メタデータのみで高速）
+    # キーワードは後で全文検索で処理するため、ここでは空文字列を渡す
     filtered_masters = search_master_data_advanced(
         master_list, program_id, date_str, time_str, channel, "", program_name, performer, time_tolerance_minutes
     )
+    
+    # デバッグ: 基本フィルタ後の件数を確認
+    if not filtered_masters:
+        # 基本フィルタで0件の場合、デバッグ情報を出力
+        st.debug(f"基本フィルタ後の結果: 0件 (全データ: {len(master_list)}件)")
     
     # キーワードが指定されている場合、全文テキストでフィルタリング
     if keyword and keyword.strip():
