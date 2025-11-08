@@ -73,8 +73,8 @@ with col_logo:
     for logo_path in logo_paths:
         try:
             if os.path.exists(logo_path):
-                # ロゴを表示
-                st.image(logo_path, width=80, use_container_width=False)
+                # ロゴを表示（サイズを大きく）
+                st.image(logo_path, width=120, use_container_width=False)
                 logo_found = True
                 logo_used_path = logo_path
                 break
@@ -86,7 +86,7 @@ with col_logo:
         st.empty()
 
 with col_title:
-    st.title("🔍 テレビ番組データ検索β")
+    st.title("テレビ番組データ検索β")
 st.markdown("---")
 
 # AWS認証情報の設定（環境変数、Streamlit Secrets、またはユーザー入力）
