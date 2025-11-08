@@ -42,7 +42,20 @@ st.set_page_config(
 col_logo, col_title = st.columns([1, 10])
 with col_logo:
     # ロゴファイルを読み込む（複数のパスを試す）
+    # Streamlitアプリの実行パスからの相対パスを考慮
+    import pathlib
+    script_dir = pathlib.Path(__file__).parent.absolute()
     logo_paths = [
+        str(script_dir.parent.parent / "image" / "tclipLOGO.png"),  # ユーザー指定のパス
+        "image/tclipLOGO.png",  # 相対パス
+        str(script_dir / "logo.png"),
+        str(script_dir / "logo.jpg"),
+        str(script_dir / "logo.jpeg"),
+        str(script_dir / "logo.svg"),
+        str(script_dir.parent.parent / "logo.png"),
+        str(script_dir.parent.parent / "logo.jpg"),
+        str(script_dir.parent.parent / "logo.jpeg"),
+        str(script_dir.parent.parent / "logo.svg"),
         "code/02-web-app/logo.png",
         "code/02-web-app/logo.jpg",
         "code/02-web-app/logo.jpeg",
