@@ -46,16 +46,21 @@ with col_logo:
         "code/02-web-app/logo.png",
         "code/02-web-app/logo.jpg",
         "code/02-web-app/logo.jpeg",
+        "code/02-web-app/logo.svg",
         "logo.png",
         "logo.jpg",
-        "logo.jpeg"
+        "logo.jpeg",
+        "logo.svg"
     ]
     logo_found = False
     for logo_path in logo_paths:
-        if os.path.exists(logo_path):
-            st.image(logo_path, width=80)
-            logo_found = True
-            break
+        try:
+            if os.path.exists(logo_path):
+                st.image(logo_path, width=80)
+                logo_found = True
+                break
+        except Exception:
+            continue
     
     if not logo_found:
         # ロゴが見つからない場合は空欄
