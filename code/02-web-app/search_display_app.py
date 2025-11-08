@@ -38,6 +38,33 @@ st.set_page_config(
     initial_sidebar_state="collapsed"  # サイドバーをデフォルトで折りたたむ
 )
 
+# ベーシック認証
+AUTH_USERNAME = "tclip"
+AUTH_PASSWORD = "tclip"
+
+# セッションステートの初期化
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+# 認証チェック
+if not st.session_state.authenticated:
+    st.title("🔐 認証が必要です")
+    
+    # 認証フォーム
+    with st.form("auth_form"):
+        username = st.text_input("ユーザー名", placeholder="ユーザー名を入力してください")
+        password = st.text_input("パスワード", type="password", placeholder="パスワードを入力してください")
+        submit_button = st.form_submit_button("ログイン", use_container_width=True)
+        
+        if submit_button:
+            if username == AUTH_USERNAME and password == AUTH_PASSWORD:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("❌ ユーザー名またはパスワードが正しくありません")
+    
+    st.stop()  # 認証が完了するまでアプリの実行を停止
+
 # タイトル（ロゴとタイトルを横並びに）
 col_logo, col_title = st.columns([1, 10])
 with col_logo:
