@@ -13,6 +13,7 @@ import boto3
 import json
 import sys
 import os
+import re
 from typing import Dict, List, Optional
 from io import BytesIO
 from datetime import date, time, datetime, timedelta
@@ -834,7 +835,18 @@ def display_master_data(master_data, chunks, images, doc_id):
             
             for idx, chunk in enumerate(filtered_chunks):
                 with st.expander(f"チャンク {idx+1}", expanded=False):
-                    st.write(chunk.get('text', ''))
+                    # トランスクリプトテキストを取得
+                    chunk_text = chunk.get('text', '')
+                    
+                    # タイムスタンプで改行処理
+                    # パターン: [HH:MM:SS.mmm-HH:MM:SS.mmm]
+                    # タイムスタンプの前に改行を追加
+                    formatted_text = re.sub(r'(\[(\d{2}):(\d{2}):(\d{2})\.(\d{3})-(\d{2}):(\d{2}):(\d{2})\.(\d{3})\])', r'\n\n\1 ', chunk_text)
+                    # 先頭の改行を削除
+                    formatted_text = formatted_text.lstrip('\n')
+                    
+                    # フォーマット済みテキストを表示
+                    st.markdown(formatted_text)
                     
                     # original_file_pathから画像を取得して表示
                     chunk_metadata = chunk.get('metadata', {})
@@ -860,15 +872,13 @@ def display_master_data(master_data, chunks, images, doc_id):
                                     Params={'Bucket': S3_BUCKET_NAME, 'Key': image_key},
                                     ExpiresIn=3600
                                 )
-                                st.image(image_url, caption=f"画像: {image_filename}", use_container_width=True)
+                                # 画像サイズを調整（最大幅を指定）
+                                st.image(image_url, caption=f"画像: {image_filename}", width=400)
                             except Exception as e:
                                 # 画像が見つからない場合はスキップ
                                 pass
                         except Exception as e:
                             pass
-                    
-                    if 'metadata' in chunk:
-                        st.json(chunk['metadata'])
         else:
             st.info("チャンクデータがありません")
 
