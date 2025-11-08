@@ -635,37 +635,68 @@ def display_master_data(master_data, chunks, images, doc_id):
     # メタデータの表示
     metadata = master_data.get('metadata', {})
     
-    st.subheader("📋 マスターデータ")
-    
-    # メタ情報をカード形式で表示
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        if 'date' in metadata:
-            st.metric("放送日", metadata.get('date', 'N/A'))
-    with col2:
-        if 'start_time' in metadata or 'end_time' in metadata:
-            time_range = f"{metadata.get('start_time', 'N/A')} - {metadata.get('end_time', 'N/A')}"
-            st.metric("時間", time_range)
-    with col3:
-        if 'channel' in metadata:
-            st.metric("放送局", metadata.get('channel', 'N/A'))
-    with col4:
-        if 'program_name' in metadata:
-            st.metric("番組名", metadata.get('program_name', 'N/A'))
-    
-    st.markdown("---")
-    
-    # タブで表示
-    tab1, tab2, tab3 = st.tabs(["📄 全文", "📑 チャンク", "🖼️ 画像"])
+    # タブで表示（番組メタデータ、画像、全文、チャンク）
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 番組メタデータ", "🖼️ 画像", "📄 全文", "📑 チャンク"])
     
     with tab1:
+        st.subheader("番組メタデータ")
+        
+        # メタ情報をカード形式で表示
+        if metadata:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if metadata.get('date'):
+                    st.markdown(f"**放送日**: {format_date_display_detail(metadata.get('date', ''))}")
+                if metadata.get('start_time') or metadata.get('end_time'):
+                    start_time = format_time_display_detail(metadata.get('start_time', ''))
+                    end_time = format_time_display_detail(metadata.get('end_time', ''))
+                    if start_time and end_time:
+                        st.markdown(f"**時間**: {start_time} - {end_time}")
+                    elif start_time:
+                        st.markdown(f"**開始時間**: {start_time}")
+                    elif end_time:
+                        st.markdown(f"**終了時間**: {end_time}")
+                if metadata.get('channel'):
+                    st.markdown(f"**放送局**: {metadata.get('channel')}")
+            
+            with col2:
+                if metadata.get('program_name'):
+                    st.markdown(f"**番組名**: {metadata.get('program_name')}")
+                elif metadata.get('title'):
+                    st.markdown(f"**タイトル**: {metadata.get('title')}")
+                if metadata.get('event_id'):
+                    st.markdown(f"**イベントID**: {metadata.get('event_id')}")
+            
+            st.markdown("---")
+            st.subheader("全メタデータ")
+            st.json(metadata)
+        else:
+            st.info("メタデータがありません")
+    
+    with tab2:
+        st.subheader("画像")
+        if images:
+            st.info(f"画像数: {len(images)}")
+            # グリッド表示（3列）
+            cols = st.columns(3)
+            for idx, img_url in enumerate(images):
+                with cols[idx % 3]:
+                    try:
+                        st.image(img_url, caption=f"画像 {idx+1}", use_container_width=True)
+                    except Exception as e:
+                        st.error(f"画像の読み込みエラー: {str(e)}")
+        else:
+            st.info("画像がありません")
+    
+    with tab3:
         st.subheader("全文テキスト")
-        if 'full_text' in master_data:
+        if 'full_text' in master_data and master_data['full_text']:
             st.text_area("", value=master_data['full_text'], height=400, key=f"full_text_{doc_id}")
         else:
             st.info("全文テキストがありません")
     
-    with tab2:
+    with tab4:
         st.subheader("チャンクデータ")
         if chunks:
             # チャンク検索
@@ -689,21 +720,45 @@ def display_master_data(master_data, chunks, images, doc_id):
                         st.json(chunk['metadata'])
         else:
             st.info("チャンクデータがありません")
-    
-    with tab3:
-        st.subheader("画像")
-        if images:
-            st.info(f"画像数: {len(images)}")
-            # グリッド表示（3列）
-            cols = st.columns(3)
-            for idx, img_url in enumerate(images):
-                with cols[idx % 3]:
-                    try:
-                        st.image(img_url, caption=f"画像 {idx+1}", use_container_width=True)
-                    except Exception as e:
-                        st.error(f"画像の読み込みエラー: {str(e)}")
+
+# 詳細表示用の時間・日付フォーマット関数
+def format_time_display_detail(time_str):
+    """時間形式を変換（詳細表示用）"""
+    if not time_str or str(time_str).strip() == '':
+        return ''
+    try:
+        time_str = str(time_str)
+        # YYYYMMDDHHMM形式の場合
+        if len(time_str) >= 12:
+            hour = time_str[8:10]
+            minute = time_str[10:12]
+            return f"{hour}:{minute}"
+        # HHMM形式の場合
+        elif len(time_str) >= 4:
+            hour = time_str[:2]
+            minute = time_str[2:4]
+            return f"{hour}:{minute}"
+        # HH:MM形式の場合
+        elif ':' in time_str:
+            return time_str
         else:
-            st.info("画像がありません")
+            return time_str
+    except Exception:
+        return ''
+
+def format_date_display_detail(date_str):
+    """日付形式を変換（詳細表示用）"""
+    if not date_str or str(date_str).strip() == '':
+        return ''
+    try:
+        date_str = str(date_str)
+        # YYYYMMDD形式の場合
+        if len(date_str) >= 8 and date_str.isdigit():
+            return f"{date_str[:4]}/{date_str[4:6]}/{date_str[6:8]}"
+        else:
+            return date_str
+    except Exception:
+        return ''
 
 # 検索実行
 if search_button:
@@ -778,9 +833,10 @@ if st.session_state.search_results:
         # 時間形式を変換する関数
         def format_time_display(time_str):
             """時間形式を変換（YYYYMMDDHHMM -> HH:MM）"""
-            if not time_str or time_str == 'N/A':
-                return 'N/A'
+            if not time_str or time_str == 'N/A' or str(time_str).strip() == '':
+                return ''
             try:
+                time_str = str(time_str)
                 # YYYYMMDDHHMM形式の場合
                 if len(time_str) >= 12:
                     hour = time_str[8:10]
@@ -797,46 +853,56 @@ if st.session_state.search_results:
                 else:
                     return time_str
             except Exception:
-                return time_str
+                return ''
         
         # 日付形式を変換する関数
         def format_date_display(date_str):
             """日付形式を変換（YYYYMMDD -> YYYY/MM/DD）"""
-            if not date_str or date_str == 'N/A':
-                return 'N/A'
+            if not date_str or date_str == 'N/A' or str(date_str).strip() == '':
+                return ''
             try:
+                date_str = str(date_str)
                 # YYYYMMDD形式の場合
                 if len(date_str) >= 8 and date_str.isdigit():
                     return f"{date_str[:4]}/{date_str[4:6]}/{date_str[6:8]}"
                 else:
                     return date_str
             except Exception:
-                return date_str
+                return ''
         
         # 結果をテーブル形式で表示
         results_data = []
         for idx, master in enumerate(st.session_state.search_results):
-            doc_id = master.get('doc_id', 'N/A')
+            doc_id = master.get('doc_id', '')
             metadata = master.get('metadata', {})
             
             # 放送日時・時間
-            date_str = metadata.get('date', 'N/A')
-            start_time = metadata.get('start_time', 'N/A')
-            end_time = metadata.get('end_time', 'N/A')
+            date_str = metadata.get('date', '')
+            start_time = metadata.get('start_time', '')
+            end_time = metadata.get('end_time', '')
             
             # 時間形式を変換
-            start_time_display = format_time_display(str(start_time))
-            end_time_display = format_time_display(str(end_time))
-            time_range = f"{start_time_display} - {end_time_display}" if start_time_display != 'N/A' and end_time_display != 'N/A' else (start_time_display if start_time_display != 'N/A' else end_time_display)
+            start_time_display = format_time_display(str(start_time)) if start_time else ''
+            end_time_display = format_time_display(str(end_time)) if end_time else ''
+            
+            # 時間範囲の表示
+            if start_time_display and end_time_display:
+                time_range = f"{start_time_display} - {end_time_display}"
+            elif start_time_display:
+                time_range = start_time_display
+            elif end_time_display:
+                time_range = end_time_display
+            else:
+                time_range = ''
             
             # 日付形式を変換
-            date_display = format_date_display(str(date_str))
+            date_display = format_date_display(str(date_str)) if date_str else ''
             
             # 放送局
-            channel = str(metadata.get('channel', 'N/A'))
+            channel = str(metadata.get('channel', '')) if metadata.get('channel') else ''
             
             # 番組名
-            program_name = str(metadata.get('program_name', metadata.get('title', 'N/A')))
+            program_name = str(metadata.get('program_name', metadata.get('title', ''))) if metadata.get('program_name') or metadata.get('title') else ''
             if len(program_name) > 20:
                 program_name = program_name[:20] + "..."
             
