@@ -925,8 +925,7 @@ api_key = "YOUR_GROQ_API_KEY"
 
 番組の概要:"""
                     
-                    # AI要約を生成（キャッシュを使用）
-                    @st.cache_data(ttl=3600)  # 1時間キャッシュ
+                    # AI要約を生成（毎回生成、キャッシュなし）
                     def generate_summary(_prompt: str, _api_key: str) -> str:
                         """Groq APIを使用して要約を生成"""
                         try:
@@ -946,7 +945,7 @@ api_key = "YOUR_GROQ_API_KEY"
                         except Exception as e:
                             return f"エラー: {str(e)}"
                     
-                    # 要約を生成
+                    # 要約を生成（毎回生成）
                     with st.spinner("AI要約を生成中..."):
                         summary = generate_summary(prompt, groq_api_key)
                     
@@ -1007,7 +1006,7 @@ api_key = "YOUR_GROQ_API_KEY"
             st.info("全文テキストがありません")
     
     with tab5:
-        st.subheader("チャンクデータ")
+        st.subheader("トランスクリプト")
         if chunks:
             # チャンク検索
             chunk_keyword = st.text_input(
@@ -1056,10 +1055,7 @@ api_key = "YOUR_GROQ_API_KEY"
                         # フィルタリングされている場合は、フィルタを解除する必要がある
                         st.warning(f"⚠️ 画像に対応するチャンクが見つかりましたが、現在の検索条件でフィルタリングされています")
                 
-                # フラグをクリア（一度表示したらクリア）
-                show_chunk_key = f"show_chunk_for_{doc_id}"
-                if show_chunk_key in st.session_state:
-                    st.session_state[show_chunk_key] = None
+                # フラグはクリアしない（チャンクが表示されるまで保持）
             
             for idx, chunk in enumerate(filtered_chunks):
                 # 画像から遷移した場合は該当チャンクを展開
@@ -1092,7 +1088,7 @@ api_key = "YOUR_GROQ_API_KEY"
                                 chunk_display_name = f"📹 {hour}:{minute}:{second}"
                 
                 with st.expander(chunk_display_name, expanded=expanded):
-                    # トランスクリプトテキストを取得
+                    # トランスクリプトを取得
                     chunk_text = chunk.get('text', '')
                     
                     # タイムスタンプで改行処理
@@ -1135,7 +1131,7 @@ api_key = "YOUR_GROQ_API_KEY"
                         except Exception as e:
                             pass
         else:
-            st.info("チャンクデータがありません")
+            st.info("トランスクリプトがありません")
 
 # 詳細表示用の時間・日付フォーマット関数
 def format_time_display_detail(time_str):
