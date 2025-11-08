@@ -1029,18 +1029,37 @@ api_key = "YOUR_GROQ_API_KEY"
                 # 画像ファイル名から対応するチャンクを探す
                 # 例: NHKG-TKY-20251003-050042-1759435242150-7.jpeg → NHKG-TKY-20251003-050042-1759435242150-7.txt
                 txt_filename = target_chunk_filename.replace('.jpeg', '.txt').replace('.jpg', '.txt')
-                for idx, chunk in enumerate(filtered_chunks):
+                
+                # まず、全チャンク（フィルタリング前）で該当チャンクを探す
+                target_chunk_in_all = None
+                for idx, chunk in enumerate(chunks):
                     chunk_metadata = chunk.get('metadata', {})
                     original_file_path = chunk_metadata.get('original_file_path', '')
-                    if original_file_path and txt_filename in original_file_path:
-                        target_chunk_idx = idx
-                        break
-                if target_chunk_idx is not None:
-                    st.success(f"✅ 画像に対応するチャンクが見つかりました（チャンク {target_chunk_idx + 1}）")
-                    # フラグをクリア（一度表示したらクリア）
-                    show_chunk_key = f"show_chunk_for_{doc_id}"
-                    if show_chunk_key in st.session_state:
-                        st.session_state[show_chunk_key] = None
+                    if original_file_path:
+                        # ファイル名を抽出して比較
+                        import os as os_module
+                        path_filename = os_module.path.basename(original_file_path)
+                        if txt_filename == path_filename or txt_filename in original_file_path:
+                            target_chunk_in_all = chunk
+                            break
+                
+                # 該当チャンクが見つかった場合、filtered_chunksでのインデックスを取得
+                if target_chunk_in_all is not None:
+                    for idx, chunk in enumerate(filtered_chunks):
+                        if chunk == target_chunk_in_all:
+                            target_chunk_idx = idx
+                            break
+                    
+                    if target_chunk_idx is not None:
+                        st.success(f"✅ 画像に対応するチャンクが見つかりました")
+                    else:
+                        # フィルタリングされている場合は、フィルタを解除する必要がある
+                        st.warning(f"⚠️ 画像に対応するチャンクが見つかりましたが、現在の検索条件でフィルタリングされています")
+                
+                # フラグをクリア（一度表示したらクリア）
+                show_chunk_key = f"show_chunk_for_{doc_id}"
+                if show_chunk_key in st.session_state:
+                    st.session_state[show_chunk_key] = None
             
             for idx, chunk in enumerate(filtered_chunks):
                 # 画像から遷移した場合は該当チャンクを展開
