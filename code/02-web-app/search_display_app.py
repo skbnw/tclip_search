@@ -626,6 +626,40 @@ def search_master_data_advanced(
                 match = False
                 continue
         
+        # 主演者でフィルタ
+        if performer and performer.strip():
+            performer_lower = performer.strip().lower()
+            # 出演者情報を取得
+            talents = metadata.get('talents', [])
+            performer_match = False
+            
+            # 出演者リストをチェック
+            if talents:
+                for talent in talents:
+                    if isinstance(talent, dict):
+                        talent_name = talent.get('name', '') or talent.get('talent_name', '')
+                    else:
+                        talent_name = str(talent)
+                    if talent_name and performer_lower in talent_name.lower():
+                        performer_match = True
+                        break
+            
+            # 出演者名の文字列フィールドもチェック
+            if not performer_match:
+                talent_fields = [
+                    metadata.get('talent_names', ''),
+                    metadata.get('performers', ''),
+                    metadata.get('cast', '')
+                ]
+                for field_value in talent_fields:
+                    if field_value and performer_lower in str(field_value).lower():
+                        performer_match = True
+                        break
+            
+            if not performer_match:
+                match = False
+                continue
+        
         # キーワードでフィルタ（全文とチャンクテキスト）
         if keyword and keyword.strip():
             keyword_lower = keyword.strip().lower()
@@ -767,8 +801,12 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
     metadata = master_data.get('metadata', {})
     
     # タブで表示（番組メタデータ、AI要約、画像、全文、チャンク）
-    # 常に同じ順序で表示
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 チャンク"])
+    # 画像から遷移した場合はチャンクタブを最初に表示
+    if target_chunk_filename:
+        # チャンクタブを最初に表示（タブの順序を変更）
+        tab5, tab1, tab2, tab3, tab4 = st.tabs(["📑 トランスクリプト", "📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文"])
+    else:
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 トランスクリプト"])
     
     with tab1:
         st.subheader("番組メタデータ")
@@ -1210,11 +1248,13 @@ if search_button:
                 search_conditions.append(f"放送局: {channel}")
             if program_name_search:
                 search_conditions.append(f"番組名: {program_name_search}")
+            if performer_search:
+                search_conditions.append(f"主演者: {performer_search}")
             if keyword:
                 search_conditions.append(f"キーワード: {keyword}")
             
             # 検索条件のチェック（番組名検索も追加）
-            if not date_str and not time_str and (not channel or channel == "すべて") and not keyword and not program_name_search:
+            if not date_str and not time_str and (not channel or channel == "すべて") and not keyword and not program_name_search and not performer_search:
                 st.warning("⚠️ 検索条件を1つ以上入力してください")
             else:
                 with st.spinner(f"検索中: {', '.join(search_conditions) if search_conditions else '条件なし'}..."):
@@ -1227,6 +1267,7 @@ if search_button:
                         channel=channel if channel != "すべて" else "",
                         keyword=keyword,
                         program_name=program_name_search if program_name_search else "",
+                        performer=performer_search if performer_search else "",
                         time_tolerance_minutes=30  # 30分以内の近似検索
                     )
             
