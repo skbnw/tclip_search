@@ -618,14 +618,21 @@ def search_master_data_advanced(
                         parts = start_time.split(':')
                         if len(parts) >= 2:
                             start_minutes = int(parts[0]) * 60 + int(parts[1])
-                    # HHMM形式（4桁）
-                    elif len(start_time) >= 4 and start_time.isdigit():
-                        start_minutes = int(start_time[:2]) * 60 + int(start_time[2:4])
                     # YYYYMMDDHHMM形式（12桁）から時間部分を抽出
-                    elif len(start_time) >= 12 and start_time.isdigit():
+                    elif len(start_time) == 12 and start_time.isdigit():
                         hour = int(start_time[8:10])
                         minute = int(start_time[10:12])
                         start_minutes = hour * 60 + minute
+                    # HHMM形式（4桁）
+                    elif len(start_time) >= 4 and start_time.isdigit():
+                        # 12桁形式でない場合のみ4桁形式として処理
+                        if len(start_time) == 4:
+                            start_minutes = int(start_time[:2]) * 60 + int(start_time[2:4])
+                        else:
+                            # その他の桁数の場合、最後の4桁を時間として扱う
+                            if len(start_time) > 4:
+                                time_part = start_time[-4:]
+                                start_minutes = int(time_part[:2]) * 60 + int(time_part[2:4])
                 except (ValueError, IndexError):
                     pass
             
@@ -637,14 +644,21 @@ def search_master_data_advanced(
                         parts = end_time.split(':')
                         if len(parts) >= 2:
                             end_minutes = int(parts[0]) * 60 + int(parts[1])
-                    # HHMM形式（4桁）
-                    elif len(end_time) >= 4 and end_time.isdigit():
-                        end_minutes = int(end_time[:2]) * 60 + int(end_time[2:4])
                     # YYYYMMDDHHMM形式（12桁）から時間部分を抽出
-                    elif len(end_time) >= 12 and end_time.isdigit():
+                    elif len(end_time) == 12 and end_time.isdigit():
                         hour = int(end_time[8:10])
                         minute = int(end_time[10:12])
                         end_minutes = hour * 60 + minute
+                    # HHMM形式（4桁）
+                    elif len(end_time) >= 4 and end_time.isdigit():
+                        # 12桁形式でない場合のみ4桁形式として処理
+                        if len(end_time) == 4:
+                            end_minutes = int(end_time[:2]) * 60 + int(end_time[2:4])
+                        else:
+                            # その他の桁数の場合、最後の4桁を時間として扱う
+                            if len(end_time) > 4:
+                                time_part = end_time[-4:]
+                                end_minutes = int(time_part[:2]) * 60 + int(time_part[2:4])
                 except (ValueError, IndexError):
                     pass
             
