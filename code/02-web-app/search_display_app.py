@@ -73,7 +73,8 @@ with col_logo:
     for logo_path in logo_paths:
         try:
             if os.path.exists(logo_path):
-                st.image(logo_path, width=80)
+                # ロゴを表示
+                st.image(logo_path, width=80, use_container_width=False)
                 logo_found = True
                 logo_used_path = logo_path
                 break
