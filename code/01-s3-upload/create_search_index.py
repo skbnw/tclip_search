@@ -75,18 +75,15 @@ def create_search_index():
                 # マスターデータを読み込み
                 master_data = json.loads(lines[0])
                 
-                # インデックス用データを作成（メタデータ + doc_id + full_textの最初の100文字のみ）
+                # インデックス用データを作成（メタデータ + doc_id + 全文テキスト全体）
                 doc_id = master_data.get('doc_id', '')
                 metadata = master_data.get('metadata', {})
                 full_text = master_data.get('full_text', '')
                 
-                # 全文テキストの最初の100文字のみを保持（キーワード検索用）
-                full_text_preview = full_text[:100] if full_text else ''
-                
                 index_entry = {
                     'doc_id': doc_id,
                     'metadata': metadata,
-                    'full_text_preview': full_text_preview,  # 全文の最初の100文字
+                    'full_text': full_text,  # 全文テキスト全体を含める（検索速度向上のため）
                     'full_text_length': len(full_text)  # 全文の長さ（検索時の参考用）
                 }
                 

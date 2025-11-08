@@ -574,7 +574,8 @@ def search_master_data_with_chunks(
     time_str: str = "",
     channel: str = "",
     keyword: str = "",
-    time_tolerance_minutes: int = 30
+    time_tolerance_minutes: int = 30,
+    max_results: int = 500  # 検索結果の上限（パフォーマンス向上）
 ) -> List[Dict]:
     """マスターデータとチャンクテキストを含む詳細検索（最適化版）"""
     # まず基本条件でフィルタ（メタデータのみで高速）
@@ -592,47 +593,34 @@ def search_master_data_with_chunks(
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        # まず全文テキストでフィルタリング（高速）
-        chunk_search_candidates = []
+        # 全文テキストでフィルタリング（インデックスに全文が含まれているため高速）
         for idx, master in enumerate(filtered_masters):
-            # 進捗表示（10件ごと）
-            if idx % 10 == 0 or idx == total - 1:
+            # 検索結果の上限に達したら終了
+            if len(results) >= max_results:
+                status_text.text(f"検索完了: {len(results)} 件（上限に達しました）")
+                break
+            
+            # 進捗表示（50件ごと、大量データでも高速に）
+            if idx % 50 == 0 or idx == total - 1:
                 progress = (idx + 1) / total
                 progress_bar.progress(progress)
-                status_text.text(f"キーワード検索中: {idx + 1}/{total} 件")
+                status_text.text(f"キーワード検索中: {idx + 1}/{total} 件（{len(results)} 件ヒット）")
             
-            # インデックスにはfull_text_previewが含まれている
-            full_text_preview = master.get('full_text_preview', '').lower()
-            # 全文テキストがインデックスに含まれている場合はそれを使用
-            if 'full_text' in master:
-                full_text = master.get('full_text', '').lower()
-            else:
-                # インデックス版の場合、previewで検索
-                full_text = full_text_preview
+            # インデックスに全文テキストが含まれている
+            full_text = master.get('full_text', '').lower()
             
             if keyword_lower in full_text:
                 results.append(master)
-            else:
-                # 全文テキストにマッチしない場合のみ、チャンク検索の候補に
-                chunk_search_candidates.append(master)
         
-        # チャンク検索（全文テキストにマッチしなかったもののみ）
-        if chunk_search_candidates:
-            status_text.text(f"チャンクデータ検索中: {len(chunk_search_candidates)} 件...")
-            for idx, master in enumerate(chunk_search_candidates):
-                try:
-                    doc_id = master.get('doc_id', '')
-                    chunks = get_chunk_data(_s3_client, doc_id)
-                    for chunk in chunks:
-                        chunk_text = chunk.get('text', '').lower()
-                        if keyword_lower in chunk_text:
-                            results.append(master)
-                            break
-                except Exception:
-                    continue
+        # チャンク検索はスキップ（インデックスに全文が含まれているため不要）
+        # 全文テキスト検索で十分高速に検索可能
         
         progress_bar.empty()
         status_text.empty()
+        
+        # 検索結果が上限に達した場合の警告
+        if len(results) >= max_results:
+            st.info(f"ℹ️ 検索結果が{max_results}件に達したため、表示を制限しました。検索条件を絞り込んでください。")
         
         return results
     
