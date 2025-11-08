@@ -590,8 +590,9 @@ def search_master_data_advanced(
         
         # 時間でフィルタ（近似検索）
         if time_str:
-            start_time = str(metadata.get('start_time', ''))
-            end_time = str(metadata.get('end_time', ''))
+            # メタデータから時間情報を取得（複数のフィールドをチェック）
+            start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', ''))
+            end_time = str(metadata.get('end_time', '')) or str(metadata.get('終了時間', ''))
             
             # 目標時間を分に変換
             try:
@@ -609,25 +610,41 @@ def search_master_data_advanced(
             start_minutes = None
             end_minutes = None
             
-            if start_time:
+            if start_time and start_time != 'None' and start_time.strip():
                 try:
+                    # 様々な形式に対応
+                    # HH:MM:SS形式
                     if ':' in start_time:
                         parts = start_time.split(':')
-                        start_minutes = int(parts[0]) * 60 + int(parts[1])
-                    else:
-                        if len(start_time) >= 4:
-                            start_minutes = int(start_time[:2]) * 60 + int(start_time[2:4])
+                        if len(parts) >= 2:
+                            start_minutes = int(parts[0]) * 60 + int(parts[1])
+                    # HHMM形式（4桁）
+                    elif len(start_time) >= 4 and start_time.isdigit():
+                        start_minutes = int(start_time[:2]) * 60 + int(start_time[2:4])
+                    # YYYYMMDDHHMM形式（12桁）から時間部分を抽出
+                    elif len(start_time) >= 12 and start_time.isdigit():
+                        hour = int(start_time[8:10])
+                        minute = int(start_time[10:12])
+                        start_minutes = hour * 60 + minute
                 except (ValueError, IndexError):
                     pass
             
-            if end_time:
+            if end_time and end_time != 'None' and end_time.strip():
                 try:
+                    # 様々な形式に対応
+                    # HH:MM:SS形式
                     if ':' in end_time:
                         parts = end_time.split(':')
-                        end_minutes = int(parts[0]) * 60 + int(parts[1])
-                    else:
-                        if len(end_time) >= 4:
-                            end_minutes = int(end_time[:2]) * 60 + int(end_time[2:4])
+                        if len(parts) >= 2:
+                            end_minutes = int(parts[0]) * 60 + int(parts[1])
+                    # HHMM形式（4桁）
+                    elif len(end_time) >= 4 and end_time.isdigit():
+                        end_minutes = int(end_time[:2]) * 60 + int(end_time[2:4])
+                    # YYYYMMDDHHMM形式（12桁）から時間部分を抽出
+                    elif len(end_time) >= 12 and end_time.isdigit():
+                        hour = int(end_time[8:10])
+                        minute = int(end_time[10:12])
+                        end_minutes = hour * 60 + minute
                 except (ValueError, IndexError):
                     pass
             
@@ -1494,7 +1511,26 @@ if search_button:
             st.session_state.search_results = search_results
             
             if not search_results:
+                # デバッグ情報を表示
+                debug_info = []
+                if date_str:
+                    debug_info.append(f"日付: {date_str}")
+                if time_str:
+                    debug_info.append(f"時間: {time_str}")
+                if channel and channel != "すべて":
+                    debug_info.append(f"放送局: {channel}")
+                if program_name_search:
+                    debug_info.append(f"番組名: {program_name_search}")
+                if performer_search:
+                    debug_info.append(f"主演者: {performer_search}")
+                if keyword:
+                    debug_info.append(f"キーワード: {keyword}")
+                
                 st.warning("⚠️ 検索条件に一致するデータが見つかりませんでした")
+                if debug_info:
+                    with st.expander("🔍 検索条件の詳細"):
+                        st.text("\n".join(debug_info))
+                        st.info(f"💡 全データ数: {len(all_masters)} 件")
             else:
                 st.success(f"✅ {len(search_results)} 件のデータが見つかりました")
                 st.markdown("---")
