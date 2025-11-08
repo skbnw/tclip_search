@@ -30,7 +30,7 @@ secrets.json
 
 # Streamlit
 .streamlit/
-.streamlit/secrets.tomlsecrets.toml
+.streamlit/secrets.toml
 
 # 出力ファイル（必要に応じて）
 output/*.log

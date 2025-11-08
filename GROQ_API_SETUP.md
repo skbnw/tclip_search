@@ -18,6 +18,8 @@
 api_key = "YOUR_GROQ_API_KEY"
 ```
 
+**注意**: `YOUR_GROQ_API_KEY` を実際のAPIキーに置き換えてください。
+
 3. 「Save」ボタンをクリック
 
 ### ステップ3: アプリを再デプロイ
@@ -45,6 +47,8 @@ $env:GROQ_API_KEY="YOUR_GROQ_API_KEY"
 [groq]
 api_key = "YOUR_GROQ_API_KEY"
 ```
+
+**注意**: `YOUR_GROQ_API_KEY` を実際のAPIキーに置き換えてください。
 
 **注意**: `.streamlit/secrets.toml` は `.gitignore` に追加してください（Gitにコミットしないように）
 
