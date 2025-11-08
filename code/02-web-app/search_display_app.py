@@ -1017,7 +1017,7 @@ api_key = "YOUR_GROQ_API_KEY"
 {metadata_json}
 
 全文テキスト:
-{full_text_for_summary[:5000]}  # 最初の5000文字を参考に
+{full_text_for_summary[:5000]}
 
 注意事項:
 - 出演者情報は不要です（タグデータで確認できます）
@@ -1051,7 +1051,7 @@ api_key = "YOUR_GROQ_API_KEY"
 {metadata_json}
 
 全文テキスト:
-{full_text_for_summary[:5000]}  # 最初の5000文字を参考に
+{full_text_for_summary[:5000]}
 
 注意事項:
 - 出演者情報は不要です（タグデータで確認できます）
