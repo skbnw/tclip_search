@@ -45,17 +45,20 @@ with col_logo:
     # Streamlitアプリの実行パスからの相対パスを考慮
     import pathlib
     script_dir = pathlib.Path(__file__).parent.absolute()
+    project_root = script_dir.parent.parent  # プロジェクトルート
+    
     logo_paths = [
-        str(script_dir.parent.parent / "image" / "tclipLOGO.png"),  # ユーザー指定のパス
-        "image/tclipLOGO.png",  # 相対パス
+        str(project_root / "image" / "tclipLOGO.png"),  # ユーザー指定のパス（絶対パス）
+        "image/tclipLOGO.png",  # 相対パス（プロジェクトルートから）
+        str(script_dir / "image" / "tclipLOGO.png"),  # code/02-web-app/image/tclipLOGO.png
         str(script_dir / "logo.png"),
         str(script_dir / "logo.jpg"),
         str(script_dir / "logo.jpeg"),
         str(script_dir / "logo.svg"),
-        str(script_dir.parent.parent / "logo.png"),
-        str(script_dir.parent.parent / "logo.jpg"),
-        str(script_dir.parent.parent / "logo.jpeg"),
-        str(script_dir.parent.parent / "logo.svg"),
+        str(project_root / "logo.png"),
+        str(project_root / "logo.jpg"),
+        str(project_root / "logo.jpeg"),
+        str(project_root / "logo.svg"),
         "code/02-web-app/logo.png",
         "code/02-web-app/logo.jpg",
         "code/02-web-app/logo.jpeg",
@@ -66,13 +69,15 @@ with col_logo:
         "logo.svg"
     ]
     logo_found = False
+    logo_used_path = None
     for logo_path in logo_paths:
         try:
             if os.path.exists(logo_path):
                 st.image(logo_path, width=80)
                 logo_found = True
+                logo_used_path = logo_path
                 break
-        except Exception:
+        except Exception as e:
             continue
     
     if not logo_found:
