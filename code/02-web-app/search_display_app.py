@@ -832,9 +832,9 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
     # 画像から遷移した場合はチャンクタブを最初に表示
     if target_chunk_filename:
         # チャンクタブを最初に表示（タブの順序を変更）
-        tab5, tab1, tab2, tab3, tab4 = st.tabs(["📑 チャンク", "📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文"])
+        tab5, tab1, tab2, tab3, tab4 = st.tabs(["📑 チャンク", "📋 番組メタデータ", "🤖 AI要約", "🖼️ 画面スクショ", "📄 全文"])
     else:
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 チャンク"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画面スクショ", "📄 全文", "📑 チャンク"])
     
     with tab1:
         st.subheader("番組メタデータ")
@@ -1140,9 +1140,9 @@ api_key = "YOUR_GROQ_API_KEY"
             st.info("メタデータがありません")
     
     with tab3:
-        st.subheader("画像")
+        st.subheader("画面スクショ")
         if images:
-            st.info(f"画像数: {len(images)}")
+            st.info(f"画面スクショ数: {len(images)}")
             # グリッド表示（3列）
             cols = st.columns(3)
             for idx, img_data in enumerate(images):
@@ -1168,9 +1168,9 @@ api_key = "YOUR_GROQ_API_KEY"
                                 st.session_state[f"show_chunk_for_{doc_id}"] = filename
                                 st.rerun()
                     except Exception as e:
-                        st.error(f"画像の読み込みエラー: {str(e)}")
+                        st.error(f"画面スクショの読み込みエラー: {str(e)}")
         else:
-            st.info("画像がありません")
+            st.info("画面スクショがありません")
     
     with tab4:
         st.subheader("全文テキスト")
@@ -1369,7 +1369,7 @@ api_key = "YOUR_GROQ_API_KEY"
                                     ExpiresIn=3600
                                 )
                                 # 画像サイズを調整（最大幅を指定）
-                                st.image(image_url, caption=f"画像: {image_filename}", width=400)
+                                st.image(image_url, caption=f"画面スクショ: {image_filename}", width=400)
                             except Exception as e:
                                 # 画像が見つからない場合はスキップ
                                 pass
