@@ -1535,13 +1535,14 @@ if search_button:
                         st.text("\n".join(debug_info))
                         st.info(f"💡 全データ数: {len(all_masters)} 件")
                         
-                        # サンプルデータの構造を確認（最初の3件）
+                        # サンプルデータの構造を確認（最初の5件）
                         if all_masters:
-                            st.markdown("**サンプルデータ（最初の3件）のメタデータ構造:**")
-                            for idx, master in enumerate(all_masters[:3]):
+                            st.markdown("**サンプルデータ（最初の5件）のメタデータ構造:**")
+                            for idx, master in enumerate(all_masters[:5]):
                                 metadata = master.get('metadata', {})
+                                st.markdown(f"**サンプル {idx+1}:**")
                                 st.json({
-                                    'doc_id': master.get('doc_id', ''),
+                                    'doc_id': master.get('doc_id', 'N/A'),
                                     'start_time': metadata.get('start_time', 'N/A'),
                                     'end_time': metadata.get('end_time', 'N/A'),
                                     '開始時間': metadata.get('開始時間', 'N/A'),
@@ -1552,6 +1553,80 @@ if search_button:
                                     'title': metadata.get('title', 'N/A'),
                                     'channel': metadata.get('channel', 'N/A')
                                 })
+                                st.markdown("---")
+                            
+                            # 検索条件に一致する可能性のあるデータを探す
+                            st.markdown("**検索条件に一致する可能性のあるデータ（時間: 05:00、番組名: ニュース）:**")
+                            matching_samples = []
+                            for master in all_masters[:20]:  # 最初の20件をチェック
+                                metadata = master.get('metadata', {})
+                                
+                                # 時間チェック
+                                time_match = False
+                                start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', ''))
+                                end_time = str(metadata.get('end_time', '')) or str(metadata.get('終了時間', ''))
+                                
+                                if start_time or end_time:
+                                    try:
+                                        target_minutes = 5 * 60  # 05:00 = 300分
+                                        
+                                        # 開始時間をチェック
+                                        if start_time and start_time != 'None' and start_time.strip():
+                                            if ':' in start_time:
+                                                parts = start_time.split(':')
+                                                if len(parts) >= 2:
+                                                    start_minutes = int(parts[0]) * 60 + int(parts[1])
+                                                    if abs(target_minutes - start_minutes) <= 30:
+                                                        time_match = True
+                                            elif len(start_time) >= 4 and start_time.isdigit():
+                                                start_minutes = int(start_time[:2]) * 60 + int(start_time[2:4])
+                                                if abs(target_minutes - start_minutes) <= 30:
+                                                    time_match = True
+                                        
+                                        # 終了時間をチェック
+                                        if not time_match and end_time and end_time != 'None' and end_time.strip():
+                                            if ':' in end_time:
+                                                parts = end_time.split(':')
+                                                if len(parts) >= 2:
+                                                    end_minutes = int(parts[0]) * 60 + int(parts[1])
+                                                    if abs(target_minutes - end_minutes) <= 30:
+                                                        time_match = True
+                                            elif len(end_time) >= 4 and end_time.isdigit():
+                                                end_minutes = int(end_time[:2]) * 60 + int(end_time[2:4])
+                                                if abs(target_minutes - end_minutes) <= 30:
+                                                    time_match = True
+                                    except:
+                                        pass
+                                
+                                # 番組名チェック
+                                program_match = False
+                                program_fields = [
+                                    metadata.get('program_name', ''),
+                                    metadata.get('program_title', ''),
+                                    metadata.get('master_title', ''),
+                                    metadata.get('title', '')
+                                ]
+                                for field_value in program_fields:
+                                    if field_value and 'ニュース' in str(field_value):
+                                        program_match = True
+                                        break
+                                
+                                if time_match or program_match:
+                                    matching_samples.append({
+                                        'doc_id': master.get('doc_id', 'N/A'),
+                                        'start_time': start_time,
+                                        'end_time': end_time,
+                                        'program_name': metadata.get('program_name', 'N/A'),
+                                        'program_title': metadata.get('program_title', 'N/A'),
+                                        'time_match': time_match,
+                                        'program_match': program_match
+                                    })
+                            
+                            if matching_samples:
+                                for sample in matching_samples[:5]:
+                                    st.json(sample)
+                            else:
+                                st.info("最初の20件の中に、検索条件に一致する可能性のあるデータは見つかりませんでした。")
             else:
                 st.success(f"✅ {len(search_results)} 件のデータが見つかりました")
                 st.markdown("---")
