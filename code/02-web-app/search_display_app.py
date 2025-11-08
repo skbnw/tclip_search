@@ -663,21 +663,22 @@ def search_master_data_advanced(
                     pass
             
             # 時間範囲内に目標時間が含まれるかチェック
+            # 指定時間以降、59分を含めて検索（例: 06:00で検索 → 06:00:00 ～ 06:59:59）
+            target_hour_start = target_minutes  # 指定時間の開始（分）
+            target_hour_end = target_minutes + 59  # 指定時間の終了（59分後まで）
+            
             if start_minutes is not None and end_minutes is not None:
-                # 時間範囲内に目標時間が含まれるか（±30分の許容範囲）
-                if start_minutes <= target_minutes <= end_minutes:
-                    time_match = True
-                elif abs(target_minutes - start_minutes) <= time_tolerance_minutes:
-                    time_match = True
-                elif abs(target_minutes - end_minutes) <= time_tolerance_minutes:
+                # 番組の時間範囲が指定時間の1時間内（00分～59分）と重なるかチェック
+                # 番組の開始時間が指定時間の1時間内、または番組の終了時間が指定時間の1時間内、または番組が指定時間の1時間内を含む
+                if (start_minutes <= target_hour_end and end_minutes >= target_hour_start):
                     time_match = True
             elif start_minutes is not None:
-                # 開始時間のみの場合、±30分以内かチェック
-                if abs(target_minutes - start_minutes) <= time_tolerance_minutes:
+                # 開始時間のみの場合、指定時間の1時間内（00分～59分）に含まれるかチェック
+                if target_hour_start <= start_minutes <= target_hour_end:
                     time_match = True
             elif end_minutes is not None:
-                # 終了時間のみの場合、±30分以内かチェック
-                if abs(target_minutes - end_minutes) <= time_tolerance_minutes:
+                # 終了時間のみの場合、指定時間の1時間内（00分～59分）に含まれるかチェック
+                if target_hour_start <= end_minutes <= target_hour_end:
                     time_match = True
             
             if not time_match:
