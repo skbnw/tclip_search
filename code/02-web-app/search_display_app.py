@@ -1057,9 +1057,13 @@ api_key = "YOUR_GROQ_API_KEY"
                 
                 # フラグはクリアしない（チャンクが表示されるまで保持）
             
+            # チャンクを表示した後にフラグをクリア
+            chunk_displayed = False
             for idx, chunk in enumerate(filtered_chunks):
                 # 画像から遷移した場合は該当チャンクを展開
                 expanded = (target_chunk_idx is not None and idx == target_chunk_idx)
+                if expanded:
+                    chunk_displayed = True
                 
                 # チャンクの表示名をファイル名から時間に変更
                 chunk_metadata = chunk.get('metadata', {})
