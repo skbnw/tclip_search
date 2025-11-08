@@ -718,7 +718,7 @@ def search_master_data_with_chunks(
     """マスターデータとチャンクテキストを含む詳細検索（最適化版）"""
     # まず基本条件でフィルタ（メタデータのみで高速）
     filtered_masters = search_master_data_advanced(
-        master_list, program_id, date_str, time_str, channel, "", program_name, time_tolerance_minutes
+        master_list, program_id, date_str, time_str, channel, "", program_name, performer, time_tolerance_minutes
     )
     
     # キーワードが指定されている場合、全文テキストでフィルタリング
