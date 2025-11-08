@@ -378,14 +378,21 @@ with st.form("search_form"):
     
     st.markdown("---")
     
-    # 下部: 番組名検索とキーワード検索
-    col_program, col_keyword = st.columns([1, 1])
+    # 下部: 番組名検索、主演者検索、キーワード検索
+    col_program, col_performer, col_keyword = st.columns([1, 1, 1])
     
     with col_program:
         program_name_search = st.text_input(
             "番組名検索",
             placeholder="番組名を入力してください（任意）",
             help="番組名で検索します"
+        )
+    
+    with col_performer:
+        performer_search = st.text_input(
+            "主演者検索",
+            placeholder="出演者名を入力してください（任意）",
+            help="出演者名で検索します"
         )
     
     with col_keyword:
@@ -513,6 +520,7 @@ def search_master_data_advanced(
     channel: str = "",
     keyword: str = "",
     program_name: str = "",
+    performer: str = "",
     time_tolerance_minutes: int = 30
 ) -> List[Dict]:
     """マスターデータを詳細条件で検索（時間近似検索対応）"""
@@ -669,6 +677,7 @@ def search_master_data_with_chunks(
     channel: str = "",
     keyword: str = "",
     program_name: str = "",
+    performer: str = "",
     time_tolerance_minutes: int = 30,
     max_results: int = 500  # 検索結果の上限（パフォーマンス向上）
 ) -> List[Dict]:
@@ -939,7 +948,7 @@ api_key = "YOUR_GROQ_API_KEY"
                                 ],
                                 model="llama-3.3-70b-versatile",  # Groqの高速モデル（llama-3.1-70b-versatileの後継）
                                 temperature=0.7,
-                                max_tokens=500
+                                max_tokens=2000  # A4サイズ程度の長さ（約2000文字）
                             )
                             return chat_completion.choices[0].message.content
                         except Exception as e:
