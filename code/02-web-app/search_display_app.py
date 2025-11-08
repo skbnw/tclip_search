@@ -38,8 +38,31 @@ st.set_page_config(
     initial_sidebar_state="collapsed"  # サイドバーをデフォルトで折りたたむ
 )
 
-# タイトル
-st.title("🔍 テレビ番組データ検索β")
+# タイトル（ロゴとタイトルを横並びに）
+col_logo, col_title = st.columns([1, 10])
+with col_logo:
+    # ロゴファイルを読み込む（複数のパスを試す）
+    logo_paths = [
+        "code/02-web-app/logo.png",
+        "code/02-web-app/logo.jpg",
+        "code/02-web-app/logo.jpeg",
+        "logo.png",
+        "logo.jpg",
+        "logo.jpeg"
+    ]
+    logo_found = False
+    for logo_path in logo_paths:
+        if os.path.exists(logo_path):
+            st.image(logo_path, width=80)
+            logo_found = True
+            break
+    
+    if not logo_found:
+        # ロゴが見つからない場合は空欄
+        st.empty()
+
+with col_title:
+    st.title("🔍 テレビ番組データ検索β")
 st.markdown("---")
 
 # AWS認証情報の設定（環境変数、Streamlit Secrets、またはユーザー入力）
@@ -804,9 +827,9 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
     # 画像から遷移した場合はチャンクタブを最初に表示
     if target_chunk_filename:
         # チャンクタブを最初に表示（タブの順序を変更）
-        tab5, tab1, tab2, tab3, tab4 = st.tabs(["📑 トランスクリプト", "📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文"])
+        tab5, tab1, tab2, tab3, tab4 = st.tabs(["📑 チャンク", "📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文"])
     else:
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 トランスクリプト"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 チャンク"])
     
     with tab1:
         st.subheader("番組メタデータ")
@@ -1219,7 +1242,7 @@ api_key = "YOUR_GROQ_API_KEY"
             st.info("全文テキストがありません")
     
     with tab5:
-        st.subheader("トランスクリプト")
+        st.subheader("チャンク")
         if chunks:
             # チャンク検索
             chunk_keyword = st.text_input(
@@ -1305,7 +1328,7 @@ api_key = "YOUR_GROQ_API_KEY"
                                 chunk_display_name = f"📹 {hour}:{minute}:{second}"
                 
                 with st.expander(chunk_display_name, expanded=expanded):
-                    # トランスクリプトを取得
+                    # チャンクテキストを取得
                     chunk_text = chunk.get('text', '')
                     
                     # タイムスタンプで改行処理
@@ -1354,7 +1377,7 @@ api_key = "YOUR_GROQ_API_KEY"
                 if show_chunk_key in st.session_state:
                     st.session_state[show_chunk_key] = None
         else:
-            st.info("トランスクリプトがありません")
+            st.info("チャンクデータがありません")
 
 # 詳細表示用の時間・日付フォーマット関数
 def format_time_display_detail(time_str):
