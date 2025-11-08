@@ -854,8 +854,8 @@ def display_master_data(master_data, chunks, images, doc_id):
                             # S3から画像を取得
                             image_key = f"{S3_IMAGE_PREFIX}{doc_id}/{image_filename}"
                             try:
-                                # 署名付きURLを生成
-                                image_url = _s3_client.generate_presigned_url(
+                                # 署名付きURLを生成（s3_clientを使用）
+                                image_url = s3_client.generate_presigned_url(
                                     'get_object',
                                     Params={'Bucket': S3_BUCKET_NAME, 'Key': image_key},
                                     ExpiresIn=3600
