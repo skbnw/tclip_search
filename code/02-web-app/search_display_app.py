@@ -1052,6 +1052,14 @@ api_key = "YOUR_GROQ_API_KEY"
             # 時間表示のパターンを削除
             cleaned_text = re.sub(r'\[\d{2}:\d{2}:\d{2}\.\d{3}-\d{2}:\d{2}:\d{2}\.\d{3}\]\s*', '', full_text)
             st.text_area("", value=cleaned_text, height=400, key=f"full_text_{doc_id}")
+            
+            # 全文テキストをtxtファイルとしてダウンロード可能にする
+            st.download_button(
+                label="📥 全文テキストをダウンロード（TXT形式）",
+                data=cleaned_text,
+                file_name=f"full_text_{doc_id}.txt",
+                mime="text/plain"
+            )
         else:
             st.info("全文テキストがありません")
     
@@ -1072,45 +1080,38 @@ api_key = "YOUR_GROQ_API_KEY"
             
             st.info(f"チャンク数: {len(chunks)} (表示: {len(filtered_chunks)})")
             
-            # 画像から遷移した場合、該当するチャンクを探す
+            # 画像から遷移した場合、該当するチャンクを直接探す（検索を経ずに）
             target_chunk_idx = None
             if target_chunk_filename:
                 # 画像ファイル名から対応するチャンクを探す
                 # 例: NHKG-TKY-20251003-050042-1759435242150-7.jpeg → NHKG-TKY-20251003-050042-1759435242150-7.txt
                 txt_filename = target_chunk_filename.replace('.jpeg', '.txt').replace('.jpg', '.txt')
                 
-                # まず、全チャンク（フィルタリング前）で該当チャンクを探す
-                target_chunk_in_all = None
-                target_chunk_original_idx = None
+                # ファイル名が一致するチャンクを直接探す（検索を経ずに）
+                import os as os_module
                 for idx, chunk in enumerate(chunks):
                     chunk_metadata = chunk.get('metadata', {})
                     original_file_path = chunk_metadata.get('original_file_path', '')
                     if original_file_path:
                         # ファイル名を抽出して比較
-                        import os as os_module
                         path_filename = os_module.path.basename(original_file_path)
                         if txt_filename == path_filename or txt_filename in original_file_path:
-                            target_chunk_in_all = chunk
-                            target_chunk_original_idx = idx
+                            # 該当チャンクが見つかった場合、filtered_chunksでのインデックスを取得
+                            # まず、filtered_chunksに含まれているか確認
+                            found_in_filtered = False
+                            for filtered_idx, filtered_chunk in enumerate(filtered_chunks):
+                                if filtered_chunk == chunk:
+                                    target_chunk_idx = filtered_idx
+                                    found_in_filtered = True
+                                    break
+                            
+                            # filtered_chunksに含まれていない場合は、先頭に追加
+                            if not found_in_filtered:
+                                filtered_chunks.insert(0, chunk)
+                                target_chunk_idx = 0
+                            
+                            st.success(f"✅ 画像に対応するチャンクに移動しました")
                             break
-                
-                # 該当チャンクが見つかった場合、filtered_chunksでのインデックスを取得
-                if target_chunk_in_all is not None:
-                    # filtered_chunksに該当チャンクが含まれているか確認
-                    found_in_filtered = False
-                    for idx, chunk in enumerate(filtered_chunks):
-                        if chunk == target_chunk_in_all:
-                            target_chunk_idx = idx
-                            found_in_filtered = True
-                            break
-                    
-                    if found_in_filtered:
-                        st.success(f"✅ 画像に対応するチャンクが見つかりました")
-                    else:
-                        # フィルタリングされている場合は、該当チャンクを強制的にfiltered_chunksに追加
-                        filtered_chunks.insert(0, target_chunk_in_all)
-                        target_chunk_idx = 0
-                        st.success(f"✅ 画像に対応するチャンクが見つかりました（検索条件を一時的に解除しました）")
                 
                 # フラグはクリアしない（チャンクが表示されるまで保持）
             
