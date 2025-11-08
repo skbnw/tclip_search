@@ -1025,7 +1025,32 @@ api_key = "YOUR_GROQ_API_KEY"
             for idx, chunk in enumerate(filtered_chunks):
                 # 画像から遷移した場合は該当チャンクを展開
                 expanded = (target_chunk_idx is not None and idx == target_chunk_idx)
-                with st.expander(f"チャンク {idx+1}", expanded=expanded):
+                
+                # チャンクの表示名をファイル名から時間に変更
+                chunk_metadata = chunk.get('metadata', {})
+                original_file_path = chunk_metadata.get('original_file_path', '')
+                chunk_display_name = f"チャンク {idx+1}"
+                
+                if original_file_path:
+                    # ファイル名から時間を抽出
+                    filename = os.path.basename(original_file_path)
+                    timestamp = extract_timestamp_from_filename(filename)
+                    if timestamp and timestamp != filename:
+                        chunk_display_name = f"📹 {timestamp}"
+                    else:
+                        # original_file_pathから直接時間を抽出
+                        # パターン: .../20251003AM/transcript/NHKG-TKY-20251003-050042-...
+                        pattern = r'(\d{8})[A-Z]*/transcript/[^/]+-(\d{6})'
+                        match = re.search(pattern, original_file_path)
+                        if match:
+                            time_str = match.group(2)  # HHMMSS
+                            if len(time_str) == 6:
+                                hour = time_str[:2]
+                                minute = time_str[2:4]
+                                second = time_str[4:6]
+                                chunk_display_name = f"📹 {hour}:{minute}:{second}"
+                
+                with st.expander(chunk_display_name, expanded=expanded):
                     # トランスクリプトテキストを取得
                     chunk_text = chunk.get('text', '')
                     
@@ -1040,8 +1065,6 @@ api_key = "YOUR_GROQ_API_KEY"
                     st.markdown(formatted_text)
                     
                     # original_file_pathから画像を取得して表示
-                    chunk_metadata = chunk.get('metadata', {})
-                    original_file_path = chunk_metadata.get('original_file_path', '')
                     
                     if original_file_path:
                         # original_file_pathから画像パスを生成
