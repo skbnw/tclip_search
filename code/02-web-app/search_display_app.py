@@ -378,12 +378,22 @@ with st.form("search_form"):
     
     st.markdown("---")
     
-    # 下部: キーワード
-    keyword = st.text_input(
-        "キーワード（全文・チャンクテキスト検索）",
-        placeholder="キーワードを入力してください（任意）",
-        help="全文テキストとチャンクテキストから検索します"
-    )
+    # 下部: 番組名検索とキーワード検索
+    col_program, col_keyword = st.columns([1, 1])
+    
+    with col_program:
+        program_name_search = st.text_input(
+            "番組名検索",
+            placeholder="番組名を入力してください（任意）",
+            help="番組名で検索します"
+        )
+    
+    with col_keyword:
+        keyword = st.text_input(
+            "キーワード（全文・チャンクテキスト検索）",
+            placeholder="キーワードを入力してください（任意）",
+            help="全文テキストとチャンクテキストから検索します"
+        )
     
     # 検索ボタン
     search_button = st.form_submit_button("🔍 検索", use_container_width=True)
@@ -502,6 +512,7 @@ def search_master_data_advanced(
     time_str: str = "",
     channel: str = "",
     keyword: str = "",
+    program_name: str = "",
     time_tolerance_minutes: int = 30
 ) -> List[Dict]:
     """マスターデータを詳細条件で検索（時間近似検索対応）"""
@@ -588,6 +599,25 @@ def search_master_data_advanced(
                 match = False
                 continue
         
+        # 番組名でフィルタ
+        if program_name and program_name.strip():
+            program_name_lower = program_name.strip().lower()
+            # 番組名の候補フィールドをチェック
+            program_fields = [
+                metadata.get('program_name', ''),
+                metadata.get('program_title', ''),
+                metadata.get('master_title', ''),
+                metadata.get('title', '')
+            ]
+            program_match = False
+            for field_value in program_fields:
+                if field_value and program_name_lower in str(field_value).lower():
+                    program_match = True
+                    break
+            if not program_match:
+                match = False
+                continue
+        
         # キーワードでフィルタ（全文とチャンクテキスト）
         if keyword and keyword.strip():
             keyword_lower = keyword.strip().lower()
@@ -638,13 +668,14 @@ def search_master_data_with_chunks(
     time_str: str = "",
     channel: str = "",
     keyword: str = "",
+    program_name: str = "",
     time_tolerance_minutes: int = 30,
     max_results: int = 500  # 検索結果の上限（パフォーマンス向上）
 ) -> List[Dict]:
     """マスターデータとチャンクテキストを含む詳細検索（最適化版）"""
     # まず基本条件でフィルタ（メタデータのみで高速）
     filtered_masters = search_master_data_advanced(
-        master_list, program_id, date_str, time_str, channel, "", time_tolerance_minutes
+        master_list, program_id, date_str, time_str, channel, "", program_name, time_tolerance_minutes
     )
     
     # キーワードが指定されている場合、全文テキストでフィルタリング
@@ -852,7 +883,12 @@ def display_master_data(master_data, chunks, images, doc_id):
                 
                 if not groq_api_key:
                     st.error("⚠️ Groq APIキーが設定されていません。Streamlit Secretsまたは環境変数 `GROQ_API_KEY` を設定してください。")
-                    return
+                    st.info("💡 Streamlit CloudのSecretsに以下を追加してください：")
+                    st.code("""
+[groq]
+api_key = "YOUR_GROQ_API_KEY"
+""", language="toml")
+                else:
                 
                 # メタデータをJSON形式で準備
                 metadata_json = json.dumps(metadata, ensure_ascii=False, indent=2)
@@ -1049,10 +1085,6 @@ def format_date_display_detail(date_str):
 
 # 検索実行
 if search_button:
-    # 検索条件をチェック（キーワードだけでも検索可能）
-    if not date_str and not time_str and (not channel or channel == "すべて") and not keyword:
-        st.warning("⚠️ 検索条件を1つ以上入力してください")
-    else:
         # 全データから検索（キャッシュを活用）
         with st.spinner("データを読み込み中...（初回のみ時間がかかります）"):
             all_masters = list_all_master_data(_s3_client=s3_client)
@@ -1068,20 +1100,27 @@ if search_button:
                 search_conditions.append(f"時間: {selected_time.strftime('%H:%M') if selected_time else time_str}")
             if channel and channel != "すべて":
                 search_conditions.append(f"放送局: {channel}")
+            if program_name_search:
+                search_conditions.append(f"番組名: {program_name_search}")
             if keyword:
                 search_conditions.append(f"キーワード: {keyword}")
             
-            with st.spinner(f"検索中: {', '.join(search_conditions) if search_conditions else '条件なし'}..."):
-                search_results = search_master_data_with_chunks(
-                    _s3_client=s3_client,
-                    master_list=all_masters,
-                    program_id="",  # 番組IDは削除
-                    date_str=date_str if date_str else "",
-                    time_str=time_str if time_str else "",
-                    channel=channel if channel != "すべて" else "",
-                    keyword=keyword,
-                    time_tolerance_minutes=30  # 30分以内の近似検索
-                )
+            # 検索条件のチェック（番組名検索も追加）
+            if not date_str and not time_str and (not channel or channel == "すべて") and not keyword and not program_name_search:
+                st.warning("⚠️ 検索条件を1つ以上入力してください")
+            else:
+                with st.spinner(f"検索中: {', '.join(search_conditions) if search_conditions else '条件なし'}..."):
+                    search_results = search_master_data_with_chunks(
+                        _s3_client=s3_client,
+                        master_list=all_masters,
+                        program_id="",  # 番組IDは削除
+                        date_str=date_str if date_str else "",
+                        time_str=time_str if time_str else "",
+                        channel=channel if channel != "すべて" else "",
+                        keyword=keyword,
+                        program_name=program_name_search if program_name_search else "",
+                        time_tolerance_minutes=30  # 30分以内の近似検索
+                    )
             
             # 検索結果をセッションステートに保存
             st.session_state.search_results = search_results
