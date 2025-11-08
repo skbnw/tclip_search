@@ -889,46 +889,45 @@ def display_master_data(master_data, chunks, images, doc_id):
 api_key = "YOUR_GROQ_API_KEY"
 """, language="toml")
                 else:
-                
-                # メタデータをJSON形式で準備
-                metadata_json = json.dumps(metadata, ensure_ascii=False, indent=2)
-                
-                # プロンプトを作成
-                prompt = f"""以下の番組メタデータを基に、番組の概要を簡潔にまとめてください。
+                    # メタデータをJSON形式で準備
+                    metadata_json = json.dumps(metadata, ensure_ascii=False, indent=2)
+                    
+                    # プロンプトを作成
+                    prompt = f"""以下の番組メタデータを基に、番組の概要を簡潔にまとめてください。
 
 メタデータ:
 {metadata_json}
 
 番組の概要（200文字程度）:"""
-                
-                # AI要約を生成（キャッシュを使用）
-                @st.cache_data(ttl=3600)  # 1時間キャッシュ
-                def generate_summary(_prompt: str, _api_key: str) -> str:
-                    """Groq APIを使用して要約を生成"""
-                    try:
-                        client = Groq(api_key=_api_key)
-                        chat_completion = client.chat.completions.create(
-                            messages=[
-                                {
-                                    "role": "user",
-                                    "content": _prompt
-                                }
-                            ],
-                            model="llama-3.1-70b-versatile",  # Groqの高速モデル
-                            temperature=0.7,
-                            max_tokens=500
-                        )
-                        return chat_completion.choices[0].message.content
-                    except Exception as e:
-                        return f"エラー: {str(e)}"
-                
-                # 要約を生成
-                with st.spinner("AI要約を生成中..."):
-                    summary = generate_summary(prompt, groq_api_key)
-                
-                # 要約を表示
-                st.markdown("### 番組概要")
-                st.markdown(summary)
+                    
+                    # AI要約を生成（キャッシュを使用）
+                    @st.cache_data(ttl=3600)  # 1時間キャッシュ
+                    def generate_summary(_prompt: str, _api_key: str) -> str:
+                        """Groq APIを使用して要約を生成"""
+                        try:
+                            client = Groq(api_key=_api_key)
+                            chat_completion = client.chat.completions.create(
+                                messages=[
+                                    {
+                                        "role": "user",
+                                        "content": _prompt
+                                    }
+                                ],
+                                model="llama-3.1-70b-versatile",  # Groqの高速モデル
+                                temperature=0.7,
+                                max_tokens=500
+                            )
+                            return chat_completion.choices[0].message.content
+                        except Exception as e:
+                            return f"エラー: {str(e)}"
+                    
+                    # 要約を生成
+                    with st.spinner("AI要約を生成中..."):
+                        summary = generate_summary(prompt, groq_api_key)
+                    
+                    # 要約を表示
+                    st.markdown("### 番組概要")
+                    st.markdown(summary)
                 
             except ImportError:
                 st.error("⚠️ Groqパッケージがインストールされていません。")
