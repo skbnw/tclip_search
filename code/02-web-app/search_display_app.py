@@ -978,7 +978,11 @@ api_key = "YOUR_GROQ_API_KEY"
     with tab4:
         st.subheader("全文テキスト")
         if 'full_text' in master_data and master_data['full_text']:
-            st.text_area("", value=master_data['full_text'], height=400, key=f"full_text_{doc_id}")
+            # 時間表示を削除（[HH:MM:SS.mmm-HH:MM:SS.mmm]形式）
+            full_text = master_data['full_text']
+            # 時間表示のパターンを削除
+            cleaned_text = re.sub(r'\[\d{2}:\d{2}:\d{2}\.\d{3}-\d{2}:\d{2}:\d{2}\.\d{3}\]\s*', '', full_text)
+            st.text_area("", value=cleaned_text, height=400, key=f"full_text_{doc_id}")
         else:
             st.info("全文テキストがありません")
     
