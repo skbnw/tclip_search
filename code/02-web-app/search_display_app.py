@@ -748,7 +748,7 @@ def search_master_data_with_chunks(
     
     return filtered_masters
 
-def display_master_data(master_data, chunks, images, doc_id):
+def display_master_data(master_data, chunks, images, doc_id, target_chunk_filename=None):
     """マスターデータ、チャンク、画像を表示"""
     if not master_data:
         st.warning("データが見つかりませんでした")
@@ -758,7 +758,13 @@ def display_master_data(master_data, chunks, images, doc_id):
     metadata = master_data.get('metadata', {})
     
     # タブで表示（番組メタデータ、AI要約、画像、全文、チャンク）
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 チャンク"])
+    # チャンクタブに切り替える場合は、デフォルトでチャンクタブを開く
+    if target_chunk_filename:
+        # チャンクタブを開いた状態で表示（JavaScriptでタブを切り替えることはできないため、
+        # チャンクタブ内で該当チャンクを自動的に展開する）
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 チャンク"])
+    else:
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 チャンク"])
     
     with tab1:
         st.subheader("番組メタデータ")
@@ -994,8 +1000,25 @@ api_key = "YOUR_GROQ_API_KEY"
             
             st.info(f"チャンク数: {len(chunks)} (表示: {len(filtered_chunks)})")
             
+            # 画像から遷移した場合、該当するチャンクを探す
+            target_chunk_idx = None
+            if target_chunk_filename:
+                # 画像ファイル名から対応するチャンクを探す
+                # 例: NHKG-TKY-20251003-050042-1759435242150-7.jpeg → NHKG-TKY-20251003-050042-1759435242150-7.txt
+                txt_filename = target_chunk_filename.replace('.jpeg', '.txt').replace('.jpg', '.txt')
+                for idx, chunk in enumerate(filtered_chunks):
+                    chunk_metadata = chunk.get('metadata', {})
+                    original_file_path = chunk_metadata.get('original_file_path', '')
+                    if original_file_path and txt_filename in original_file_path:
+                        target_chunk_idx = idx
+                        break
+                if target_chunk_idx is not None:
+                    st.success(f"✅ 画像に対応するチャンクが見つかりました（チャンク {target_chunk_idx + 1}）")
+            
             for idx, chunk in enumerate(filtered_chunks):
-                with st.expander(f"チャンク {idx+1}", expanded=False):
+                # 画像から遷移した場合は該当チャンクを展開
+                expanded = (target_chunk_idx is not None and idx == target_chunk_idx)
+                with st.expander(f"チャンク {idx+1}", expanded=expanded):
                     # トランスクリプトテキストを取得
                     chunk_text = chunk.get('text', '')
                     
@@ -1146,12 +1169,21 @@ if st.session_state.search_results:
             st.markdown("### 📄 詳細情報")
         st.markdown("---")
         doc_id = st.session_state.selected_doc_id
+        
+        # チャンクタブに切り替えるフラグをチェック
+        show_chunk_key = f"show_chunk_for_{doc_id}"
+        target_chunk_filename = None
+        if show_chunk_key in st.session_state and st.session_state[show_chunk_key]:
+            target_chunk_filename = st.session_state[show_chunk_key]
+            # フラグをクリア
+            st.session_state[show_chunk_key] = None
+        
         with st.spinner("データを取得中..."):
             full_master_data = get_master_data(_s3_client=s3_client, doc_id=doc_id)
             chunks = get_chunk_data(_s3_client=s3_client, doc_id=doc_id)
             images = list_images(_s3_client=s3_client, doc_id=doc_id)
         
-        display_master_data(full_master_data, chunks, images, doc_id)
+        display_master_data(full_master_data, chunks, images, doc_id, target_chunk_filename)
     
     # リスト表示モード
     else:
