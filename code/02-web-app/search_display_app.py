@@ -692,8 +692,8 @@ def display_master_data(master_data, chunks, images, doc_id):
     # メタデータの表示
     metadata = master_data.get('metadata', {})
     
-    # タブで表示（番組メタデータ、画像、全文、チャンク）
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 番組メタデータ", "🖼️ 画像", "📄 全文", "📑 チャンク"])
+    # タブで表示（番組メタデータ、AI要約、画像、全文、チャンク）
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 チャンク"])
     
     with tab1:
         st.subheader("番組メタデータ")
@@ -795,6 +795,66 @@ def display_master_data(master_data, chunks, images, doc_id):
             st.info("メタデータがありません")
     
     with tab2:
+        st.subheader("AI要約")
+        
+        # Groq APIを使用して番組の概要を生成
+        if metadata:
+            try:
+                from groq import Groq
+                
+                # Groq APIクライアントを初期化
+                groq_api_key = "YOUR_GROQ_API_KEY"
+                client = Groq(api_key=groq_api_key)
+                
+                # メタデータをJSON形式で準備
+                metadata_json = json.dumps(metadata, ensure_ascii=False, indent=2)
+                
+                # プロンプトを作成
+                prompt = f"""以下の番組メタデータを基に、番組の概要を簡潔にまとめてください。
+
+メタデータ:
+{metadata_json}
+
+番組の概要（200文字程度）:"""
+                
+                # AI要約を生成（キャッシュを使用）
+                @st.cache_data(ttl=3600)  # 1時間キャッシュ
+                def generate_summary(_prompt: str, _api_key: str) -> str:
+                    """Groq APIを使用して要約を生成"""
+                    try:
+                        client = Groq(api_key=_api_key)
+                        chat_completion = client.chat.completions.create(
+                            messages=[
+                                {
+                                    "role": "user",
+                                    "content": _prompt
+                                }
+                            ],
+                            model="llama-3.1-70b-versatile",  # Groqの高速モデル
+                            temperature=0.7,
+                            max_tokens=500
+                        )
+                        return chat_completion.choices[0].message.content
+                    except Exception as e:
+                        return f"エラー: {str(e)}"
+                
+                # 要約を生成
+                with st.spinner("AI要約を生成中..."):
+                    summary = generate_summary(prompt, groq_api_key)
+                
+                # 要約を表示
+                st.markdown("### 番組概要")
+                st.markdown(summary)
+                
+            except ImportError:
+                st.error("⚠️ Groqパッケージがインストールされていません。")
+                st.code("pip install groq", language="bash")
+            except Exception as e:
+                st.error(f"⚠️ AI要約の生成でエラーが発生しました: {str(e)}")
+        else:
+            st.info("メタデータがありません")
+    
+    with tab3:
         st.subheader("画像")
         if images:
             st.info(f"画像数: {len(images)}")
@@ -809,14 +869,14 @@ def display_master_data(master_data, chunks, images, doc_id):
         else:
             st.info("画像がありません")
     
-    with tab3:
+    with tab4:
         st.subheader("全文テキスト")
         if 'full_text' in master_data and master_data['full_text']:
             st.text_area("", value=master_data['full_text'], height=400, key=f"full_text_{doc_id}")
         else:
             st.info("全文テキストがありません")
     
-    with tab4:
+    with tab5:
         st.subheader("チャンクデータ")
         if chunks:
             # チャンク検索
