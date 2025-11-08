@@ -1134,6 +1134,12 @@ api_key = "YOUR_GROQ_API_KEY"
                                 pass
                         except Exception as e:
                             pass
+            
+            # チャンクが表示された後にフラグをクリア
+            if target_chunk_filename and chunk_displayed:
+                show_chunk_key = f"show_chunk_for_{doc_id}"
+                if show_chunk_key in st.session_state:
+                    st.session_state[show_chunk_key] = None
         else:
             st.info("トランスクリプトがありません")
 
@@ -1246,7 +1252,7 @@ if st.session_state.search_results:
         target_chunk_filename = None
         if show_chunk_key in st.session_state and st.session_state[show_chunk_key]:
             target_chunk_filename = st.session_state[show_chunk_key]
-            # フラグはクリアしない（チャンクタブを開いた状態で表示するため）
+            # フラグは保持（チャンクが表示された後にクリア）
         
         with st.spinner("データを取得中..."):
             full_master_data = get_master_data(_s3_client=s3_client, doc_id=doc_id)
