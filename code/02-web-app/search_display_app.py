@@ -86,7 +86,7 @@ with col_logo:
         st.empty()
 
 with col_title:
-    st.title("テレビ番組データ検索β")
+    st.title("番組データ検索β")
 st.markdown("---")
 
 # AWS認証情報の設定（環境変数、Streamlit Secrets、またはユーザー入力）
@@ -605,7 +605,10 @@ def search_master_data_advanced(
             # 開始時間と終了時間をチェック
             time_match = False
             
-            # 開始時間をチェック
+            # 開始時間と終了時間を分に変換
+            start_minutes = None
+            end_minutes = None
+            
             if start_time:
                 try:
                     if ':' in start_time:
@@ -614,18 +617,10 @@ def search_master_data_advanced(
                     else:
                         if len(start_time) >= 4:
                             start_minutes = int(start_time[:2]) * 60 + int(start_time[2:4])
-                        else:
-                            start_minutes = None
-                    
-                    if start_minutes is not None:
-                        diff = abs(target_minutes - start_minutes)
-                        if diff <= time_tolerance_minutes:
-                            time_match = True
                 except (ValueError, IndexError):
                     pass
             
-            # 終了時間をチェック
-            if not time_match and end_time:
+            if end_time:
                 try:
                     if ':' in end_time:
                         parts = end_time.split(':')
@@ -633,15 +628,26 @@ def search_master_data_advanced(
                     else:
                         if len(end_time) >= 4:
                             end_minutes = int(end_time[:2]) * 60 + int(end_time[2:4])
-                        else:
-                            end_minutes = None
-                    
-                    if end_minutes is not None:
-                        diff = abs(target_minutes - end_minutes)
-                        if diff <= time_tolerance_minutes:
-                            time_match = True
                 except (ValueError, IndexError):
                     pass
+            
+            # 時間範囲内に目標時間が含まれるかチェック
+            if start_minutes is not None and end_minutes is not None:
+                # 時間範囲内に目標時間が含まれるか（±30分の許容範囲）
+                if start_minutes <= target_minutes <= end_minutes:
+                    time_match = True
+                elif abs(target_minutes - start_minutes) <= time_tolerance_minutes:
+                    time_match = True
+                elif abs(target_minutes - end_minutes) <= time_tolerance_minutes:
+                    time_match = True
+            elif start_minutes is not None:
+                # 開始時間のみの場合、±30分以内かチェック
+                if abs(target_minutes - start_minutes) <= time_tolerance_minutes:
+                    time_match = True
+            elif end_minutes is not None:
+                # 終了時間のみの場合、±30分以内かチェック
+                if abs(target_minutes - end_minutes) <= time_tolerance_minutes:
+                    time_match = True
             
             if not time_match:
                 match = False
