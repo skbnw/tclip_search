@@ -957,18 +957,21 @@ api_key = "YOUR_GROQ_API_KEY"
 - 報じられているニュースのタイトルを1つ以上挙げてください
 - 各ニュースについて3行程度のメモを記載してください
 - 番組名や放送局名は不要です
+- A4サイズ程度（約2000文字）の長さで詳細に記述してください
 
 ニュースのタイトルと3行メモ:"""
                     else:
                         # その他の番組の場合：通常の要約
-                        prompt = f"""以下の番組メタデータを基に、番組の概要を簡潔にまとめてください。
+                        prompt = f"""以下の番組メタデータを基に、番組の概要を詳しくまとめてください。
 
 メタデータ:
 {metadata_json}
 
 注意事項:
 - 出演者情報は不要です（タグデータで確認できます）
-- 番組の内容、テーマ、特集などを200文字程度でまとめてください
+- 番組の内容、テーマ、特集などを詳しく説明してください
+- A4サイズ程度（約2000文字）の長さで詳細に記述してください
+- 番組の主要なポイント、特集内容、重要な情報を含めてください
 
 番組の概要:"""
                     
@@ -1078,6 +1081,7 @@ api_key = "YOUR_GROQ_API_KEY"
                 
                 # まず、全チャンク（フィルタリング前）で該当チャンクを探す
                 target_chunk_in_all = None
+                target_chunk_original_idx = None
                 for idx, chunk in enumerate(chunks):
                     chunk_metadata = chunk.get('metadata', {})
                     original_file_path = chunk_metadata.get('original_file_path', '')
@@ -1087,20 +1091,26 @@ api_key = "YOUR_GROQ_API_KEY"
                         path_filename = os_module.path.basename(original_file_path)
                         if txt_filename == path_filename or txt_filename in original_file_path:
                             target_chunk_in_all = chunk
+                            target_chunk_original_idx = idx
                             break
                 
                 # 該当チャンクが見つかった場合、filtered_chunksでのインデックスを取得
                 if target_chunk_in_all is not None:
+                    # filtered_chunksに該当チャンクが含まれているか確認
+                    found_in_filtered = False
                     for idx, chunk in enumerate(filtered_chunks):
                         if chunk == target_chunk_in_all:
                             target_chunk_idx = idx
+                            found_in_filtered = True
                             break
                     
-                    if target_chunk_idx is not None:
+                    if found_in_filtered:
                         st.success(f"✅ 画像に対応するチャンクが見つかりました")
                     else:
-                        # フィルタリングされている場合は、フィルタを解除する必要がある
-                        st.warning(f"⚠️ 画像に対応するチャンクが見つかりましたが、現在の検索条件でフィルタリングされています")
+                        # フィルタリングされている場合は、該当チャンクを強制的にfiltered_chunksに追加
+                        filtered_chunks.insert(0, target_chunk_in_all)
+                        target_chunk_idx = 0
+                        st.success(f"✅ 画像に対応するチャンクが見つかりました（検索条件を一時的に解除しました）")
                 
                 # フラグはクリアしない（チャンクが表示されるまで保持）
             
