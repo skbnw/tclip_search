@@ -1,5 +1,5 @@
 """
-S3データ検索・表示Webアプリ
+地上波テレビ番組放送をAI要約するシステムのプロトタイプです。
 
 Streamlitを使用して、S3バケット内のデータを検索・表示します。
 - 日付・時間・放送局・キーワードで検索
@@ -35,7 +35,10 @@ st.set_page_config(
     page_title="テレビ番組データ検索β",
     page_icon="🔍",
     layout="wide",
-    initial_sidebar_state="collapsed"  # サイドバーをデフォルトで折りたたむ
+    initial_sidebar_state="collapsed",  # サイドバーをデフォルトで折りたたむ
+    menu_items={
+        'About': '地上波テレビ番組放送をAI要約するシステムのプロトタイプです。'
+    }
 )
 
 # ベーシック認証
@@ -985,32 +988,13 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
                             link = talent.get('link', '')
                             if name:
                                 if link:
-                                    # リンクのURLから説明書きを削除（シンプルなリンク表示）
-                                    # URLに説明が含まれている場合は、名前のみを表示してリンクを追加
                                     talent_links.append(f"[{name}]({link})")
                                 else:
                                     talent_links.append(name)
                         elif isinstance(talent, str):
                             talent_links.append(talent)
                     if talent_links:
-                        # リンクを個別に表示（説明書きを削除）
-                        talent_display = []
-                        for talent in talents:
-                            if isinstance(talent, dict):
-                                name = talent.get('name', '')
-                                link = talent.get('link', '')
-                                if name:
-                                    if link:
-                                        # リンクをHTML形式で表示（ツールチップなし）
-                                        talent_display.append(f'<a href="{link}" target="_blank" rel="noopener noreferrer">{name}</a>')
-                                    else:
-                                        talent_display.append(name)
-                            elif isinstance(talent, str):
-                                talent_display.append(talent)
-                        if talent_display:
-                            # HTML形式でリンクを表示
-                            talent_html = ", ".join(talent_display)
-                            table_data.append({"項目": "出演者", "値": talent_html, "is_html": True})
+                        table_data.append({"項目": "出演者", "値": ", ".join(talent_links)})
             if metadata.get('talent_count'):
                 table_data.append({"項目": "出演者数", "値": str(metadata.get('talent_count'))})
             
@@ -1022,16 +1006,9 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
                     with col1:
                         st.markdown(f"**{row['項目']}**")
                     with col2:
-                        # HTMLリンクまたはマークダウンリンクを処理
-                        if row.get('is_html', False):
-                            # HTML形式のリンクを表示
-                            st.markdown(row['値'], unsafe_allow_html=True)
-                        elif isinstance(row['値'], str) and row['値'].startswith('[') and '](' in row['値']:
-                            # マークダウンリンクを処理（説明書きを削除）
-                            # リンクテキストから不要な説明を削除
-                            link_text = row['値']
-                            # [名前](URL)形式のリンクをそのまま表示
-                            st.markdown(link_text)
+                        # マークダウンリンクを処理
+                        if isinstance(row['値'], str) and row['値'].startswith('[') and '](' in row['値']:
+                            st.markdown(row['値'])
                         else:
                             st.markdown(row['値'])
             else:
