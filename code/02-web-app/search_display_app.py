@@ -1556,19 +1556,33 @@ if search_button:
                                 st.markdown("---")
                             
                             # 検索条件に一致する可能性のあるデータを探す
-                            st.markdown("**検索条件に一致する可能性のあるデータ（時間: 05:00、番組名: ニュース）:**")
-                            matching_samples = []
-                            for master in all_masters[:20]:  # 最初の20件をチェック
-                                metadata = master.get('metadata', {})
+                            debug_time_str = time_str if time_str else None
+                            debug_program_name = program_name_search if program_name_search else None
+                            
+                            if debug_time_str or debug_program_name:
+                                debug_title = "**検索条件に一致する可能性のあるデータ:**"
+                                if debug_time_str:
+                                    debug_title += f" 時間: {debug_time_str}"
+                                if debug_program_name:
+                                    debug_title += f" 番組名: {debug_program_name}"
+                                st.markdown(debug_title)
                                 
-                                # 時間チェック
-                                time_match = False
-                                start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', ''))
-                                end_time = str(metadata.get('end_time', '')) or str(metadata.get('終了時間', ''))
-                                
-                                if start_time or end_time:
-                                    try:
-                                        target_minutes = 5 * 60  # 05:00 = 300分
+                                matching_samples = []
+                                for master in all_masters[:50]:  # 最初の50件をチェック
+                                    metadata = master.get('metadata', {})
+                                    
+                                    # 時間チェック
+                                    time_match = False
+                                    if debug_time_str:
+                                        start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', ''))
+                                        end_time = str(metadata.get('end_time', '')) or str(metadata.get('終了時間', ''))
+                                        
+                                        if start_time or end_time:
+                                            try:
+                                                # 目標時間を分に変換
+                                                target_hour = int(debug_time_str[:2])
+                                                target_minute = int(debug_time_str[2:4])
+                                                target_minutes = target_hour * 60 + target_minute
                                         
                                         # 開始時間をチェック
                                         if start_time and start_time != 'None' and start_time.strip():
@@ -1598,35 +1612,39 @@ if search_button:
                                     except:
                                         pass
                                 
-                                # 番組名チェック
-                                program_match = False
-                                program_fields = [
-                                    metadata.get('program_name', ''),
-                                    metadata.get('program_title', ''),
-                                    metadata.get('master_title', ''),
-                                    metadata.get('title', '')
-                                ]
-                                for field_value in program_fields:
-                                    if field_value and 'ニュース' in str(field_value):
-                                        program_match = True
-                                        break
+                                    # 番組名チェック
+                                    program_match = False
+                                    if debug_program_name:
+                                        program_name_lower = debug_program_name.strip().lower()
+                                        program_fields = [
+                                            metadata.get('program_name', ''),
+                                            metadata.get('program_title', ''),
+                                            metadata.get('master_title', ''),
+                                            metadata.get('title', '')
+                                        ]
+                                        for field_value in program_fields:
+                                            if field_value and program_name_lower in str(field_value).lower():
+                                                program_match = True
+                                                break
+                                    
+                                    # 時間または番組名のいずれかに一致する場合
+                                    if (debug_time_str and time_match) or (debug_program_name and program_match):
+                                        matching_samples.append({
+                                            'doc_id': master.get('doc_id', 'N/A'),
+                                            'start_time': start_time if debug_time_str else 'N/A',
+                                            'end_time': end_time if debug_time_str else 'N/A',
+                                            'program_name': metadata.get('program_name', 'N/A'),
+                                            'program_title': metadata.get('program_title', 'N/A'),
+                                            'time_match': time_match if debug_time_str else False,
+                                            'program_match': program_match if debug_program_name else False
+                                        })
                                 
-                                if time_match or program_match:
-                                    matching_samples.append({
-                                        'doc_id': master.get('doc_id', 'N/A'),
-                                        'start_time': start_time,
-                                        'end_time': end_time,
-                                        'program_name': metadata.get('program_name', 'N/A'),
-                                        'program_title': metadata.get('program_title', 'N/A'),
-                                        'time_match': time_match,
-                                        'program_match': program_match
-                                    })
-                            
-                            if matching_samples:
-                                for sample in matching_samples[:5]:
-                                    st.json(sample)
-                            else:
-                                st.info("最初の20件の中に、検索条件に一致する可能性のあるデータは見つかりませんでした。")
+                                if matching_samples:
+                                    st.info(f"最初の50件の中に、検索条件に一致する可能性のあるデータが {len(matching_samples)} 件見つかりました（最大5件を表示）:")
+                                    for sample in matching_samples[:5]:
+                                        st.json(sample)
+                                else:
+                                    st.info("最初の50件の中に、検索条件に一致する可能性のあるデータは見つかりませんでした。")
             else:
                 st.success(f"✅ {len(search_results)} 件のデータが見つかりました")
                 st.markdown("---")
