@@ -893,13 +893,37 @@ api_key = "YOUR_GROQ_API_KEY"
                     # メタデータをJSON形式で準備
                     metadata_json = json.dumps(metadata, ensure_ascii=False, indent=2)
                     
+                    # 番組タイプを判定（ニュース番組かどうか）
+                    program_name = metadata.get('program_name', '') or metadata.get('program_title', '') or metadata.get('master_title', '') or ''
+                    is_news = 'ニュース' in program_name or 'news' in program_name.lower()
+                    
                     # プロンプトを作成
-                    prompt = f"""以下の番組メタデータを基に、番組の概要を簡潔にまとめてください。
+                    if is_news:
+                        # ニュース番組の場合：ニュースのタイトルと3行メモ形式
+                        prompt = f"""以下のニュース番組のメタデータを基に、報じられているニュースのタイトルと3行メモを作成してください。
 
 メタデータ:
 {metadata_json}
 
-番組の概要（200文字程度）:"""
+注意事項:
+- 出演者情報は不要です（タグデータで確認できます）
+- 報じられているニュースのタイトルを1つ以上挙げてください
+- 各ニュースについて3行程度のメモを記載してください
+- 番組名や放送局名は不要です
+
+ニュースのタイトルと3行メモ:"""
+                    else:
+                        # その他の番組の場合：通常の要約
+                        prompt = f"""以下の番組メタデータを基に、番組の概要を簡潔にまとめてください。
+
+メタデータ:
+{metadata_json}
+
+注意事項:
+- 出演者情報は不要です（タグデータで確認できます）
+- 番組の内容、テーマ、特集などを200文字程度でまとめてください
+
+番組の概要:"""
                     
                     # AI要約を生成（キャッシュを使用）
                     @st.cache_data(ttl=3600)  # 1時間キャッシュ
