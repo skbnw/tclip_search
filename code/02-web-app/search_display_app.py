@@ -1534,9 +1534,27 @@ if search_button:
                 
                 st.warning("⚠️ 検索条件に一致するデータが見つかりませんでした")
                 if debug_info:
-                    with st.expander("🔍 検索条件の詳細"):
+                    with st.expander("🔍 検索条件の詳細とデバッグ情報"):
                         st.text("\n".join(debug_info))
                         st.info(f"💡 全データ数: {len(all_masters)} 件")
+                        
+                        # サンプルデータの構造を確認（最初の3件）
+                        if all_masters:
+                            st.markdown("**サンプルデータ（最初の3件）のメタデータ構造:**")
+                            for idx, master in enumerate(all_masters[:3]):
+                                metadata = master.get('metadata', {})
+                                st.json({
+                                    'doc_id': master.get('doc_id', ''),
+                                    'start_time': metadata.get('start_time', 'N/A'),
+                                    'end_time': metadata.get('end_time', 'N/A'),
+                                    '開始時間': metadata.get('開始時間', 'N/A'),
+                                    '終了時間': metadata.get('終了時間', 'N/A'),
+                                    'program_name': metadata.get('program_name', 'N/A'),
+                                    'program_title': metadata.get('program_title', 'N/A'),
+                                    'master_title': metadata.get('master_title', 'N/A'),
+                                    'title': metadata.get('title', 'N/A'),
+                                    'channel': metadata.get('channel', 'N/A')
+                                })
             else:
                 st.success(f"✅ {len(search_results)} 件のデータが見つかりました")
                 st.markdown("---")
