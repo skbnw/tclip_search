@@ -758,12 +758,8 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
     metadata = master_data.get('metadata', {})
     
     # タブで表示（番組メタデータ、AI要約、画像、全文、チャンク）
-    # チャンクタブに切り替える場合は、チャンクタブを最初に表示
-    if target_chunk_filename:
-        # チャンクタブを最初に表示（タブの順序を変更）
-        tab5, tab1, tab2, tab3, tab4 = st.tabs(["📑 チャンク", "📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文"])
-    else:
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 チャンク"])
+    # 常に同じ順序で表示
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 チャンク"])
     
     with tab1:
         st.subheader("番組メタデータ")
@@ -918,7 +914,7 @@ api_key = "YOUR_GROQ_API_KEY"
                                         "content": _prompt
                                     }
                                 ],
-                                model="llama-3.1-70b-versatile",  # Groqの高速モデル
+                                model="llama-3.3-70b-versatile",  # Groqの高速モデル（llama-3.1-70b-versatileの後継）
                                 temperature=0.7,
                                 max_tokens=500
                             )
@@ -1033,7 +1029,9 @@ api_key = "YOUR_GROQ_API_KEY"
                 
                 if original_file_path:
                     # ファイル名から時間を抽出
-                    filename = os.path.basename(original_file_path)
+                    # os.path.basenameを使用（osは既にインポート済み）
+                    import os as os_module
+                    filename = os_module.path.basename(original_file_path)
                     timestamp = extract_timestamp_from_filename(filename)
                     if timestamp and timestamp != filename:
                         chunk_display_name = f"📹 {timestamp}"
