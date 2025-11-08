@@ -758,11 +758,10 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
     metadata = master_data.get('metadata', {})
     
     # タブで表示（番組メタデータ、AI要約、画像、全文、チャンク）
-    # チャンクタブに切り替える場合は、デフォルトでチャンクタブを開く
+    # チャンクタブに切り替える場合は、チャンクタブを最初に表示
     if target_chunk_filename:
-        # チャンクタブを開いた状態で表示（JavaScriptでタブを切り替えることはできないため、
-        # チャンクタブ内で該当チャンクを自動的に展開する）
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 チャンク"])
+        # チャンクタブを最初に表示（タブの順序を変更）
+        tab5, tab1, tab2, tab3, tab4 = st.tabs(["📑 チャンク", "📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文"])
     else:
         tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画像", "📄 全文", "📑 チャンク"])
     
@@ -1014,6 +1013,10 @@ api_key = "YOUR_GROQ_API_KEY"
                         break
                 if target_chunk_idx is not None:
                     st.success(f"✅ 画像に対応するチャンクが見つかりました（チャンク {target_chunk_idx + 1}）")
+                    # フラグをクリア（一度表示したらクリア）
+                    show_chunk_key = f"show_chunk_for_{doc_id}"
+                    if show_chunk_key in st.session_state:
+                        st.session_state[show_chunk_key] = None
             
             for idx, chunk in enumerate(filtered_chunks):
                 # 画像から遷移した場合は該当チャンクを展開
@@ -1175,8 +1178,7 @@ if st.session_state.search_results:
         target_chunk_filename = None
         if show_chunk_key in st.session_state and st.session_state[show_chunk_key]:
             target_chunk_filename = st.session_state[show_chunk_key]
-            # フラグをクリア
-            st.session_state[show_chunk_key] = None
+            # フラグはクリアしない（チャンクタブを開いた状態で表示するため）
         
         with st.spinner("データを取得中..."):
             full_master_data = get_master_data(_s3_client=s3_client, doc_id=doc_id)
