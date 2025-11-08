@@ -908,10 +908,28 @@ def display_master_data(master_data, chunks, images, doc_id):
             st.info(f"画像数: {len(images)}")
             # グリッド表示（3列）
             cols = st.columns(3)
-            for idx, img_url in enumerate(images):
+            for idx, img_data in enumerate(images):
                 with cols[idx % 3]:
                     try:
-                        st.image(img_url, caption=f"画像 {idx+1}", use_container_width=True)
+                        # 画像データを取得（辞書形式またはURL文字列）
+                        if isinstance(img_data, dict):
+                            img_url = img_data.get('url', '')
+                            timestamp = img_data.get('timestamp', f"画像 {idx+1}")
+                            filename = img_data.get('filename', '')
+                        else:
+                            img_url = img_data
+                            timestamp = f"画像 {idx+1}"
+                            filename = ''
+                        
+                        # 画像を表示（撮影時間をキャプションに）
+                        st.image(img_url, caption=timestamp, use_container_width=True)
+                        
+                        # クリックでチャンクタブに飛ぶボタン
+                        if filename:
+                            if st.button(f"📑 チャンクを表示", key=f"chunk_link_{doc_id}_{idx}"):
+                                # チャンクタブに切り替える（セッションステートを使用）
+                                st.session_state[f"show_chunk_for_{doc_id}"] = filename
+                                st.rerun()
                     except Exception as e:
                         st.error(f"画像の読み込みエラー: {str(e)}")
         else:
