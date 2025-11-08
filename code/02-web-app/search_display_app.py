@@ -556,8 +556,37 @@ def search_master_data_advanced(
         # キーワードでフィルタ（全文とチャンクテキスト）
         if keyword and keyword.strip():
             keyword_lower = keyword.strip().lower()
-            full_text = master.get('full_text', '').lower()
-            if keyword_lower not in full_text:
+            
+            # 検索対象テキストを取得（複数のソースから）
+            search_texts = []
+            
+            # 1. 全文テキスト
+            full_text = master.get('full_text', '')
+            if full_text:
+                search_texts.append(str(full_text).lower())
+            
+            # 2. 全文プレビュー（フォールバック）
+            full_text_preview = master.get('full_text_preview', '')
+            if full_text_preview and not full_text:
+                search_texts.append(str(full_text_preview).lower())
+            
+            # 3. メタデータ内のテキストフィールド
+            metadata = master.get('metadata', {})
+            if metadata:
+                text_fields = [
+                    'program_name', 'program_title', 'master_title',
+                    'description', 'description_detail', 'program_detail',
+                    'title', 'channel', 'channel_code'
+                ]
+                for field in text_fields:
+                    field_value = metadata.get(field, '')
+                    if field_value:
+                        search_texts.append(str(field_value).lower())
+            
+            # すべての検索対象テキストを結合して検索
+            combined_text = ' '.join(search_texts)
+            
+            if keyword_lower not in combined_text:
                 match = False
                 continue
         
@@ -606,10 +635,37 @@ def search_master_data_with_chunks(
                 progress_bar.progress(progress)
                 status_text.text(f"キーワード検索中: {idx + 1}/{total} 件（{len(results)} 件ヒット）")
             
-            # インデックスに全文テキストが含まれている
-            full_text = master.get('full_text', '').lower()
+            # 検索対象テキストを取得（複数のソースから）
+            search_texts = []
             
-            if keyword_lower in full_text:
+            # 1. 全文テキスト（インデックスに含まれている場合）
+            full_text = master.get('full_text', '')
+            if full_text:
+                search_texts.append(str(full_text).lower())
+            
+            # 2. 全文プレビュー（インデックスに全文がない場合のフォールバック）
+            full_text_preview = master.get('full_text_preview', '')
+            if full_text_preview and not full_text:
+                search_texts.append(str(full_text_preview).lower())
+            
+            # 3. メタデータ内のテキストフィールドも検索対象に含める
+            metadata = master.get('metadata', {})
+            if metadata:
+                # 番組名、説明、詳細説明など
+                text_fields = [
+                    'program_name', 'program_title', 'master_title',
+                    'description', 'description_detail', 'program_detail',
+                    'title', 'channel', 'channel_code'
+                ]
+                for field in text_fields:
+                    field_value = metadata.get(field, '')
+                    if field_value:
+                        search_texts.append(str(field_value).lower())
+            
+            # すべての検索対象テキストを結合して検索
+            combined_text = ' '.join(search_texts)
+            
+            if keyword_lower in combined_text:
                 results.append(master)
         
         # チャンク検索はスキップ（インデックスに全文が含まれているため不要）
