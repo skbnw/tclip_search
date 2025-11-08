@@ -437,28 +437,62 @@ def get_chunk_data(_s3_client, doc_id: str) -> List[Dict]:
         return []
 
 @st.cache_data(ttl=300)
-def list_images(_s3_client, doc_id: str) -> List[str]:
-    """画像URLのリストを取得"""
+def list_images(_s3_client, doc_id: str) -> List[Dict]:
+    """画像URLとメタデータのリストを取得"""
     try:
         prefix = f"{S3_IMAGE_PREFIX}{doc_id}/"
         response = _s3_client.list_objects_v2(Bucket=S3_BUCKET_NAME, Prefix=prefix)
         
-        image_urls = []
+        image_data = []
         if 'Contents' in response:
             for obj in response['Contents']:
                 key = obj['Key']
                 if key.endswith(('.jpeg', '.jpg', '.png')):
+                    # ファイル名を抽出
+                    filename = os.path.basename(key)
+                    
                     # 署名付きURLを生成（1時間有効）
                     url = _s3_client.generate_presigned_url(
                         'get_object',
                         Params={'Bucket': S3_BUCKET_NAME, 'Key': key},
                         ExpiresIn=3600
                     )
-                    image_urls.append(url)
-        return image_urls
+                    
+                    # ファイル名から撮影時間を抽出
+                    # 例: NHKG-TKY-20251003-050042-1759435242150-7.jpeg → 05:00:42
+                    timestamp = extract_timestamp_from_filename(filename)
+                    
+                    image_data.append({
+                        'url': url,
+                        'filename': filename,
+                        'timestamp': timestamp,
+                        'key': key
+                    })
+        return image_data
     except Exception as e:
         st.error(f"画像一覧の取得エラー: {str(e)}")
         return []
+
+def extract_timestamp_from_filename(filename: str) -> str:
+    """ファイル名から撮影時間を抽出"""
+    # パターン: NHKG-TKY-20251003-050042-1759435242150-7.jpeg
+    # または: NHKG-TKY-20251003-050042-1759435242150-7.jpg
+    # 時間部分: 050042 → 05:00:42
+    try:
+        # ファイル名から日付と時間部分を抽出
+        # パターン: YYYYMMDD-HHMMSS
+        pattern = r'(\d{8})-(\d{6})'
+        match = re.search(pattern, filename)
+        if match:
+            time_str = match.group(2)  # HHMMSS
+            if len(time_str) == 6:
+                hour = time_str[:2]
+                minute = time_str[2:4]
+                second = time_str[4:6]
+                return f"{hour}:{minute}:{second}"
+    except Exception:
+        pass
+    return filename  # 抽出できない場合はファイル名を返す
 
 
 def search_master_data_advanced(
@@ -812,8 +846,9 @@ def display_master_data(master_data, chunks, images, doc_id):
                     pass
                 
                 if not groq_api_key:
-                    # 環境変数から取得
-                    groq_api_key = os.getenv('GROQ_API_KEY')
+                    # 環境変数から取得（osモジュールは既にインポート済み）
+                    import os as os_module
+                    groq_api_key = os_module.getenv('GROQ_API_KEY')
                 
                 if not groq_api_key:
                     st.error("⚠️ Groq APIキーが設定されていません。Streamlit Secretsまたは環境変数 `GROQ_API_KEY` を設定してください。")
