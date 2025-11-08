@@ -715,7 +715,16 @@ def display_master_data(master_data, chunks, images, doc_id):
             # 日時情報
             if metadata.get('date') or metadata.get('broadcast_date'):
                 date_val = metadata.get('broadcast_date') or metadata.get('date')
-                table_data.append({"項目": "放送日", "値": format_date_display_detail(str(date_val))})
+                date_str = str(date_val)
+                # YYYYMMDD形式の場合
+                if len(date_str) >= 8 and date_str.isdigit():
+                    date_display = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+                # YYYY-MM-DD形式の場合
+                elif '-' in date_str:
+                    date_display = date_str
+                else:
+                    date_display = date_str
+                table_data.append({"項目": "放送日", "値": date_display})
             if metadata.get('start_time'):
                 start_time = format_time_display_detail(metadata.get('start_time', ''))
                 table_data.append({"項目": "開始時間", "値": start_time})
@@ -736,56 +745,51 @@ def display_master_data(master_data, chunks, images, doc_id):
             if metadata.get('genre'):
                 table_data.append({"項目": "ジャンル", "値": metadata.get('genre')})
             
-            # リンク情報
-            if metadata.get('link'):
-                table_data.append({"項目": "リンク", "値": f"[{metadata.get('link')}]({metadata.get('link')})"})
-            if metadata.get('official_website'):
-                table_data.append({"項目": "公式サイト", "値": f"[{metadata.get('official_website')}]({metadata.get('official_website')})"})
-            
-            # 出演者情報
+            # 出演者情報（リンク付き）
             if metadata.get('talents'):
                 talents = metadata.get('talents', [])
                 if isinstance(talents, list) and len(talents) > 0:
-                    talent_names = []
+                    talent_links = []
                     for talent in talents:
                         if isinstance(talent, dict):
                             name = talent.get('name', '')
+                            link = talent.get('link', '')
                             if name:
-                                talent_names.append(name)
+                                if link:
+                                    talent_links.append(f"[{name}]({link})")
+                                else:
+                                    talent_links.append(name)
                         elif isinstance(talent, str):
-                            talent_names.append(talent)
-                    if talent_names:
-                        table_data.append({"項目": "出演者", "値": ", ".join(talent_names)})
+                            talent_links.append(talent)
+                    if talent_links:
+                        table_data.append({"項目": "出演者", "値": ", ".join(talent_links)})
             if metadata.get('talent_count'):
                 table_data.append({"項目": "出演者数", "値": str(metadata.get('talent_count'))})
             
-            # その他の情報
-            if metadata.get('data_source'):
-                table_data.append({"項目": "データソース", "値": metadata.get('data_source')})
-            if metadata.get('metadata_generated_at'):
-                table_data.append({"項目": "メタデータ生成日時", "値": metadata.get('metadata_generated_at')})
-            
-            # テーブル表示
+            # テーブル表示（詰めて表示）
             if table_data:
-                st.markdown("### 基本情報")
-                # HTMLテーブル風の表示
+                # HTMLテーブル風の表示（詰めて）
                 for row in table_data:
                     col1, col2 = st.columns([2, 5])
                     with col1:
                         st.markdown(f"**{row['項目']}**")
                     with col2:
                         # マークダウンリンクを処理
-                        if row['値'].startswith('[') and '](' in row['値']:
+                        if isinstance(row['値'], str) and row['値'].startswith('[') and '](' in row['値']:
                             st.markdown(row['値'])
                         else:
                             st.markdown(row['値'])
-                    st.markdown("---")
             else:
                 st.info("表示可能なメタデータがありません")
             
-            # 全メタデータをJSON形式でも表示（折りたたみ可能）
-            with st.expander("📋 全メタデータ（JSON形式）", expanded=False):
-                st.json(metadata)
+            # 全メタデータをJSON形式でダウンロード可能にする
+            json_str = json.dumps(metadata, ensure_ascii=False, indent=2)
+            st.download_button(
+                label="📥 全メタデータをダウンロード（JSON形式）",
+                data=json_str,
+                file_name=f"metadata_{doc_id}.json",
+                mime="application/json"
+            )
         else:
             st.info("メタデータがありません")
     
@@ -831,6 +835,38 @@ def display_master_data(master_data, chunks, images, doc_id):
             for idx, chunk in enumerate(filtered_chunks):
                 with st.expander(f"チャンク {idx+1}", expanded=False):
                     st.write(chunk.get('text', ''))
+                    
+                    # original_file_pathから画像を取得して表示
+                    chunk_metadata = chunk.get('metadata', {})
+                    original_file_path = chunk_metadata.get('original_file_path', '')
+                    
+                    if original_file_path:
+                        # original_file_pathから画像パスを生成
+                        # 例: /run/user/1000/gvfs/smb-share:server=nas-tky-2504.local,share=processed/NHKG-TKY/20251003AM/transcript/NHKG-TKY-20251003-050042-1759435242150-7.txt
+                        # → NHKG-TKY-20251003-050042-1759435242150-7.jpeg
+                        try:
+                            # ファイル名を抽出
+                            import os
+                            filename = os.path.basename(original_file_path)
+                            # .txtを.jpegに置換
+                            image_filename = filename.replace('.txt', '.jpeg')
+                            
+                            # S3から画像を取得
+                            image_key = f"{S3_IMAGE_PREFIX}{doc_id}/{image_filename}"
+                            try:
+                                # 署名付きURLを生成
+                                image_url = _s3_client.generate_presigned_url(
+                                    'get_object',
+                                    Params={'Bucket': S3_BUCKET_NAME, 'Key': image_key},
+                                    ExpiresIn=3600
+                                )
+                                st.image(image_url, caption=f"画像: {image_filename}", use_container_width=True)
+                            except Exception as e:
+                                # 画像が見つからない場合はスキップ
+                                pass
+                        except Exception as e:
+                            pass
+                    
                     if 'metadata' in chunk:
                         st.json(chunk['metadata'])
         else:
@@ -992,7 +1028,7 @@ if st.session_state.search_results:
             metadata = master.get('metadata', {})
             
             # 放送日時・時間
-            date_str = metadata.get('date', '')
+            date_str = metadata.get('date', '') or metadata.get('broadcast_date', '')
             start_time = metadata.get('start_time', '')
             end_time = metadata.get('end_time', '')
             
@@ -1010,16 +1046,31 @@ if st.session_state.search_results:
             else:
                 time_range = ''
             
-            # 日付形式を変換
-            date_display = format_date_display(str(date_str)) if date_str else ''
+            # 日付形式を変換（yyyy-mm-dd形式）
+            if date_str:
+                date_str = str(date_str)
+                # YYYYMMDD形式の場合
+                if len(date_str) >= 8 and date_str.isdigit():
+                    date_display = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+                # YYYY-MM-DD形式の場合
+                elif '-' in date_str:
+                    date_display = date_str
+                else:
+                    date_display = date_str
+            else:
+                date_display = ''
             
             # 放送局
             channel = str(metadata.get('channel', '')) if metadata.get('channel') else ''
             
-            # 番組名
-            program_name = str(metadata.get('program_name', metadata.get('title', ''))) if metadata.get('program_name') or metadata.get('title') else ''
-            if len(program_name) > 20:
-                program_name = program_name[:20] + "..."
+            # 番組名（program_name, program_title, master_titleの順で取得）
+            program_name = (metadata.get('program_name') or 
+                          metadata.get('program_title') or 
+                          metadata.get('master_title') or 
+                          metadata.get('title') or '')
+            program_name = str(program_name) if program_name else ''
+            if len(program_name) > 30:
+                program_name = program_name[:30] + "..."
             
             results_data.append({
                 'No.': idx + 1,
