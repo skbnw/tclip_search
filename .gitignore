@@ -29,7 +29,8 @@ Thumbs.db
 secrets.json
 
 # Streamlit
-.streamlit/secrets.toml
+.streamlit/
+.streamlit/secrets.tomlsecrets.toml
 
 # 出力ファイル（必要に応じて）
 output/*.log
