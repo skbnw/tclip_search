@@ -1211,7 +1211,22 @@ api_key = "YOUR_GROQ_API_KEY"
                             )
                             return chat_completion.choices[0].message.content
                         except Exception as e:
-                            return f"エラー: {str(e)}"
+                            error_str = str(e)
+                            # レート制限エラー（429）の場合、分かりやすいメッセージを返す
+                            if '429' in error_str or 'rate_limit' in error_str.lower() or 'Rate limit' in error_str:
+                                if 'try again in' in error_str.lower():
+                                    # 再試行可能時間を含むメッセージを抽出
+                                    import re
+                                    wait_time_match = re.search(r'try again in ([\d\.]+[smh]+)', error_str, re.IGNORECASE)
+                                    if wait_time_match:
+                                        wait_time = wait_time_match.group(1)
+                                        return f"⚠️ APIの利用制限に達しました。{wait_time}後に再試行してください。\n\n詳細: 1日のトークン使用量の上限に達しています。しばらく時間をおいてから再度お試しください。"
+                                    else:
+                                        return "⚠️ APIの利用制限に達しました。しばらく時間をおいてから再度お試しください。\n\n詳細: 1日のトークン使用量の上限に達しています。"
+                                else:
+                                    return "⚠️ APIの利用制限に達しました。しばらく時間をおいてから再度お試しください。\n\n詳細: 1日のトークン使用量の上限に達しています。"
+                            else:
+                                return f"⚠️ エラーが発生しました: {error_str}"
                     
                     # 要約を生成（毎回生成）
                     with st.spinner("AI要約を生成中..."):
