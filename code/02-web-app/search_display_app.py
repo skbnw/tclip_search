@@ -32,14 +32,14 @@ S3_IMAGE_PREFIX = "rag/images/"
 
 # ページ設定
 st.set_page_config(
-    page_title="Tclipデータ検索beta",
+    page_title="テレビ番組データ検索β",
     page_icon="🔍",
     layout="wide",
     initial_sidebar_state="collapsed"  # サイドバーをデフォルトで折りたたむ
 )
 
 # タイトル
-st.title("🔍 Tclipデータ検索beta")
+st.title("🔍 テレビ番組データ検索β")
 st.markdown("---")
 
 # AWS認証情報の設定（環境変数、Streamlit Secrets、またはユーザー入力）
@@ -898,10 +898,66 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
             
             # 全メタデータをJSON形式でダウンロード可能にする
             json_str = json.dumps(metadata, ensure_ascii=False, indent=2)
+            
+            # ファイル名を生成（放送開始時間_放送終了時間_局名_details.json）
+            # 日付と時間を取得
+            date_str = metadata.get('date', '') or metadata.get('broadcast_date', '')
+            start_time = metadata.get('start_time', '')
+            end_time = metadata.get('end_time', '')
+            channel = metadata.get('channel', '') or metadata.get('channel_code', '')
+            
+            # ファイル名用の形式に変換
+            filename_date = ""
+            filename_start = ""
+            filename_end = ""
+            filename_channel = ""
+            
+            if date_str:
+                date_str = str(date_str)
+                if len(date_str) >= 8 and date_str.isdigit():
+                    filename_date = date_str  # YYYYMMDD
+                elif '-' in date_str:
+                    filename_date = date_str.replace('-', '')[:8]  # YYYY-MM-DD -> YYYYMMDD
+            
+            if start_time:
+                start_time_str = str(start_time)
+                if len(start_time_str) >= 4:
+                    if ':' in start_time_str:
+                        filename_start = start_time_str.replace(':', '')[:4]  # HH:MM -> HHMM
+                    else:
+                        filename_start = start_time_str[:4]  # HHMM
+            
+            if end_time:
+                end_time_str = str(end_time)
+                if len(end_time_str) >= 4:
+                    if ':' in end_time_str:
+                        filename_end = end_time_str.replace(':', '')[:4]  # HH:MM -> HHMM
+                    else:
+                        filename_end = end_time_str[:4]  # HHMM
+            
+            if channel:
+                # チャンネル名を英語化（簡易版）
+                channel_mapping = {
+                    'NHK総合': 'NHK',
+                    'NHK Eテレ': 'NHK-ETV',
+                    'フジテレビ': 'FUJI-TV',
+                    '日本テレビ': 'NTV',
+                    'TBS': 'TBS',
+                    'テレビ朝日': 'TV-ASAHI',
+                    'テレビ東京': 'TV-TOKYO'
+                }
+                filename_channel = channel_mapping.get(channel, channel.replace(' ', '-').replace('　', '-'))
+            
+            # ファイル名を生成
+            if filename_date and filename_start and filename_end and filename_channel:
+                json_filename = f"{filename_date}_{filename_start}_{filename_end}_{filename_channel}_details.json"
+            else:
+                json_filename = f"metadata_{doc_id}.json"
+            
             st.download_button(
                 label="📥 全メタデータをダウンロード（JSON形式）",
                 data=json_str,
-                file_name=f"metadata_{doc_id}.json",
+                file_name=json_filename,
                 mime="application/json"
             )
         else:
@@ -940,6 +996,13 @@ api_key = "YOUR_GROQ_API_KEY"
                     # メタデータをJSON形式で準備
                     metadata_json = json.dumps(metadata, ensure_ascii=False, indent=2)
                     
+                    # 全文テキストを取得（時間表示を削除）
+                    full_text_for_summary = ""
+                    if 'full_text' in master_data and master_data['full_text']:
+                        full_text_raw = master_data['full_text']
+                        # 時間表示のパターンを削除
+                        full_text_for_summary = re.sub(r'\[\d{2}:\d{2}:\d{2}\.\d{3}-\d{2}:\d{2}:\d{2}\.\d{3}\]\s*', '', full_text_raw)
+                    
                     # 番組タイプを判定（ニュース番組かどうか）
                     program_name = metadata.get('program_name', '') or metadata.get('program_title', '') or metadata.get('master_title', '') or ''
                     is_news = 'ニュース' in program_name or 'news' in program_name.lower()
@@ -947,7 +1010,26 @@ api_key = "YOUR_GROQ_API_KEY"
                     # プロンプトを作成
                     if is_news:
                         # ニュース番組の場合：ニュースのタイトルと3行メモ形式
-                        prompt = f"""以下のニュース番組のメタデータを基に、報じられているニュースのタイトルと3行メモを作成してください。
+                        if full_text_for_summary:
+                            prompt = f"""以下のニュース番組のメタデータと全文テキストを基に、報じられているニュースのタイトルと3行メモを作成してください。
+
+メタデータ:
+{metadata_json}
+
+全文テキスト:
+{full_text_for_summary[:5000]}  # 最初の5000文字を参考に
+
+注意事項:
+- 出演者情報は不要です（タグデータで確認できます）
+- 報じられているニュースのタイトルを1つ以上挙げてください
+- 各ニュースについて3行程度のメモを記載してください
+- 番組名や放送局名は不要です
+- A4サイズ程度（約2000文字）の長さで詳細に記述してください
+- 全文テキストの内容を優先的に参考にしてください（メタデータよりも実際の放送内容が重要です）
+
+ニュースのタイトルと3行メモ:"""
+                        else:
+                            prompt = f"""以下のニュース番組のメタデータを基に、報じられているニュースのタイトルと3行メモを作成してください。
 
 メタデータ:
 {metadata_json}
@@ -962,7 +1044,25 @@ api_key = "YOUR_GROQ_API_KEY"
 ニュースのタイトルと3行メモ:"""
                     else:
                         # その他の番組の場合：通常の要約
-                        prompt = f"""以下の番組メタデータを基に、番組の概要を詳しくまとめてください。
+                        if full_text_for_summary:
+                            prompt = f"""以下の番組メタデータと全文テキストを基に、番組の概要を詳しくまとめてください。
+
+メタデータ:
+{metadata_json}
+
+全文テキスト:
+{full_text_for_summary[:5000]}  # 最初の5000文字を参考に
+
+注意事項:
+- 出演者情報は不要です（タグデータで確認できます）
+- 番組の内容、テーマ、特集などを詳しく説明してください
+- A4サイズ程度（約2000文字）の長さで詳細に記述してください
+- 番組の主要なポイント、特集内容、重要な情報を含めてください
+- 全文テキストの内容を優先的に参考にしてください（メタデータよりも実際の放送内容が重要です）
+
+番組の概要:"""
+                        else:
+                            prompt = f"""以下の番組メタデータを基に、番組の概要を詳しくまとめてください。
 
 メタデータ:
 {metadata_json}
@@ -1054,10 +1154,65 @@ api_key = "YOUR_GROQ_API_KEY"
             st.text_area("", value=cleaned_text, height=400, key=f"full_text_{doc_id}")
             
             # 全文テキストをtxtファイルとしてダウンロード可能にする
+            # ファイル名を生成（放送開始時間_放送終了時間_局名_fulltext.txt）
+            metadata = master_data.get('metadata', {})
+            date_str = metadata.get('date', '') or metadata.get('broadcast_date', '')
+            start_time = metadata.get('start_time', '')
+            end_time = metadata.get('end_time', '')
+            channel = metadata.get('channel', '') or metadata.get('channel_code', '')
+            
+            # ファイル名用の形式に変換
+            filename_date = ""
+            filename_start = ""
+            filename_end = ""
+            filename_channel = ""
+            
+            if date_str:
+                date_str = str(date_str)
+                if len(date_str) >= 8 and date_str.isdigit():
+                    filename_date = date_str  # YYYYMMDD
+                elif '-' in date_str:
+                    filename_date = date_str.replace('-', '')[:8]  # YYYY-MM-DD -> YYYYMMDD
+            
+            if start_time:
+                start_time_str = str(start_time)
+                if len(start_time_str) >= 4:
+                    if ':' in start_time_str:
+                        filename_start = start_time_str.replace(':', '')[:4]  # HH:MM -> HHMM
+                    else:
+                        filename_start = start_time_str[:4]  # HHMM
+            
+            if end_time:
+                end_time_str = str(end_time)
+                if len(end_time_str) >= 4:
+                    if ':' in end_time_str:
+                        filename_end = end_time_str.replace(':', '')[:4]  # HH:MM -> HHMM
+                    else:
+                        filename_end = end_time_str[:4]  # HHMM
+            
+            if channel:
+                # チャンネル名を英語化（簡易版）
+                channel_mapping = {
+                    'NHK総合': 'NHK',
+                    'NHK Eテレ': 'NHK-ETV',
+                    'フジテレビ': 'FUJI-TV',
+                    '日本テレビ': 'NTV',
+                    'TBS': 'TBS',
+                    'テレビ朝日': 'TV-ASAHI',
+                    'テレビ東京': 'TV-TOKYO'
+                }
+                filename_channel = channel_mapping.get(channel, channel.replace(' ', '-').replace('　', '-'))
+            
+            # ファイル名を生成
+            if filename_date and filename_start and filename_end and filename_channel:
+                txt_filename = f"{filename_date}_{filename_start}_{filename_end}_{filename_channel}_fulltext.txt"
+            else:
+                txt_filename = f"full_text_{doc_id}.txt"
+            
             st.download_button(
                 label="📥 全文テキストをダウンロード（TXT形式）",
                 data=cleaned_text,
-                file_name=f"full_text_{doc_id}.txt",
+                file_name=txt_filename,
                 mime="text/plain"
             )
         else:
