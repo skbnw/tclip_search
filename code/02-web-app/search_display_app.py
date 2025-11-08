@@ -802,9 +802,22 @@ def display_master_data(master_data, chunks, images, doc_id):
             try:
                 from groq import Groq
                 
-                # Groq APIクライアントを初期化
-                groq_api_key = "YOUR_GROQ_API_KEY"
-                client = Groq(api_key=groq_api_key)
+                # Groq APIキーを取得（Streamlit Secrets > 環境変数 > デフォルト）
+                groq_api_key = None
+                try:
+                    # Streamlit Secretsから取得
+                    if hasattr(st, 'secrets') and 'groq' in st.secrets and 'api_key' in st.secrets.groq:
+                        groq_api_key = st.secrets.groq.api_key
+                except:
+                    pass
+                
+                if not groq_api_key:
+                    # 環境変数から取得
+                    groq_api_key = os.getenv('GROQ_API_KEY')
+                
+                if not groq_api_key:
+                    st.error("⚠️ Groq APIキーが設定されていません。Streamlit Secretsまたは環境変数 `GROQ_API_KEY` を設定してください。")
+                    return
                 
                 # メタデータをJSON形式で準備
                 metadata_json = json.dumps(metadata, ensure_ascii=False, indent=2)
