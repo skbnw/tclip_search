@@ -40,7 +40,12 @@ Streamlit Cloudの「Settings」→「Secrets」で以下を設定してくだ�
 AWS_ACCESS_KEY_ID = "YOUR_AWS_ACCESS_KEY_ID"
 AWS_SECRET_ACCESS_KEY = "YOUR_AWS_SECRET_ACCESS_KEY"
 AWS_DEFAULT_REGION = "ap-northeast-1"
+
+[groq]
+api_key = "YOUR_GROQ_API_KEY"
 ```
+
+**注意**: `YOUR_AWS_ACCESS_KEY_ID`, `YOUR_AWS_SECRET_ACCESS_KEY`, `YOUR_GROQ_API_KEY` を実際の値に置き換えてください。
 
 #### Pythonバージョン
 
@@ -71,7 +76,12 @@ botocore>=1.31.0
 AWS_ACCESS_KEY_ID = "YOUR_AWS_ACCESS_KEY_ID"
 AWS_SECRET_ACCESS_KEY = "YOUR_AWS_SECRET_ACCESS_KEY"
 AWS_DEFAULT_REGION = "ap-northeast-1"
+
+[groq]
+api_key = "YOUR_GROQ_API_KEY"
 ```
+
+**注意**: `YOUR_AWS_ACCESS_KEY_ID`, `YOUR_AWS_SECRET_ACCESS_KEY`, `YOUR_GROQ_API_KEY` を実際の値に置き換えてください。
 
 4. 「Save」をクリック
 
