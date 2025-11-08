@@ -1573,6 +1573,8 @@ if search_button:
                                     
                                     # 時間チェック
                                     time_match = False
+                                    start_time = ''
+                                    end_time = ''
                                     if debug_time_str:
                                         start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', ''))
                                         end_time = str(metadata.get('end_time', '')) or str(metadata.get('終了時間', ''))
@@ -1583,34 +1585,34 @@ if search_button:
                                                 target_hour = int(debug_time_str[:2])
                                                 target_minute = int(debug_time_str[2:4])
                                                 target_minutes = target_hour * 60 + target_minute
-                                        
-                                        # 開始時間をチェック
-                                        if start_time and start_time != 'None' and start_time.strip():
-                                            if ':' in start_time:
-                                                parts = start_time.split(':')
-                                                if len(parts) >= 2:
-                                                    start_minutes = int(parts[0]) * 60 + int(parts[1])
-                                                    if abs(target_minutes - start_minutes) <= 30:
-                                                        time_match = True
-                                            elif len(start_time) >= 4 and start_time.isdigit():
-                                                start_minutes = int(start_time[:2]) * 60 + int(start_time[2:4])
-                                                if abs(target_minutes - start_minutes) <= 30:
-                                                    time_match = True
-                                        
-                                        # 終了時間をチェック
-                                        if not time_match and end_time and end_time != 'None' and end_time.strip():
-                                            if ':' in end_time:
-                                                parts = end_time.split(':')
-                                                if len(parts) >= 2:
-                                                    end_minutes = int(parts[0]) * 60 + int(parts[1])
-                                                    if abs(target_minutes - end_minutes) <= 30:
-                                                        time_match = True
-                                            elif len(end_time) >= 4 and end_time.isdigit():
-                                                end_minutes = int(end_time[:2]) * 60 + int(end_time[2:4])
-                                                if abs(target_minutes - end_minutes) <= 30:
-                                                    time_match = True
-                                    except:
-                                        pass
+                                                
+                                                # 開始時間をチェック
+                                                if start_time and start_time != 'None' and start_time.strip():
+                                                    if ':' in start_time:
+                                                        parts = start_time.split(':')
+                                                        if len(parts) >= 2:
+                                                            start_minutes = int(parts[0]) * 60 + int(parts[1])
+                                                            if abs(target_minutes - start_minutes) <= 30:
+                                                                time_match = True
+                                                    elif len(start_time) >= 4 and start_time.isdigit():
+                                                        start_minutes = int(start_time[:2]) * 60 + int(start_time[2:4])
+                                                        if abs(target_minutes - start_minutes) <= 30:
+                                                            time_match = True
+                                                
+                                                # 終了時間をチェック
+                                                if not time_match and end_time and end_time != 'None' and end_time.strip():
+                                                    if ':' in end_time:
+                                                        parts = end_time.split(':')
+                                                        if len(parts) >= 2:
+                                                            end_minutes = int(parts[0]) * 60 + int(parts[1])
+                                                            if abs(target_minutes - end_minutes) <= 30:
+                                                                time_match = True
+                                                    elif len(end_time) >= 4 and end_time.isdigit():
+                                                        end_minutes = int(end_time[:2]) * 60 + int(end_time[2:4])
+                                                        if abs(target_minutes - end_minutes) <= 30:
+                                                            time_match = True
+                                            except:
+                                                pass
                                 
                                     # 番組名チェック
                                     program_match = False
