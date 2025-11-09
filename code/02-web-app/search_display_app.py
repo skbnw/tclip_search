@@ -520,6 +520,41 @@ with tab_detail:
                 index=initial_channel_index
             )
         
+        # 日付と時間
+        col_date, col_time = st.columns([1, 1])
+        with col_date:
+            initial_date = st.session_state.search_date if 'search_date' in st.session_state else None
+            selected_date_detail = st.date_input(
+                "📆 日付",
+                value=initial_date,
+                help="カレンダーから日付を選択してください（任意）",
+                key="date_input_detail"
+            )
+        
+        with col_time:
+            # 時間（30分単位）
+            time_options = generate_time_options()
+            selected_time_index_detail = 0
+            if 'time_input_detail' in st.session_state and st.session_state.time_input_detail is not None:
+                if st.session_state.time_input_detail in time_options:
+                    selected_time_index_detail = time_options.index(st.session_state.time_input_detail) + 1
+            elif st.session_state.search_time:
+                try:
+                    time_obj = datetime.strptime(st.session_state.search_time, "%H:%M").time()
+                    if time_obj in time_options:
+                        selected_time_index_detail = time_options.index(time_obj) + 1
+                except:
+                    pass
+            
+            selected_time_detail = st.selectbox(
+                "🕐 時間",
+                options=[None] + time_options,
+                format_func=lambda x: x.strftime("%H:%M") if x else "----",
+                help="時間を選択してください（30分単位、任意）",
+                key="time_input_detail",
+                index=selected_time_index_detail
+            )
+        
         # 番組名、ジャンル、キーワード
         col_program, col_genre, col_keyword = st.columns([1, 1, 1])
         
