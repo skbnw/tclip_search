@@ -2129,6 +2129,47 @@ if st.session_state.search_results:
     
     # リスト表示モード
     else:
+        # ページング機能（20件ごと）
+        total_results = len(st.session_state.search_results)
+        items_per_page = 20
+        total_pages = (total_results + items_per_page - 1) // items_per_page if total_results > 0 else 1
+        
+        # 現在のページ番号をセッションステートで管理
+        if 'current_page' not in st.session_state:
+            st.session_state.current_page = 1
+        
+        # ページ番号の表示と選択
+        if total_pages > 1:
+            col_page_info, col_page_buttons = st.columns([2, 8])
+            with col_page_info:
+                st.info(f"📄 {total_results} 件中 {((st.session_state.current_page - 1) * items_per_page) + 1} - {min(st.session_state.current_page * items_per_page, total_results)} 件を表示（ページ {st.session_state.current_page}/{total_pages}）")
+            
+            with col_page_buttons:
+                # ページ番号ボタンを表示（最大10ページまで表示）
+                page_cols = st.columns(min(total_pages, 10))
+                for idx, col in enumerate(page_cols):
+                    page_num = idx + 1
+                    if page_num <= total_pages:
+                        if col.button(str(page_num), key=f"page_{page_num}", use_container_width=True):
+                            st.session_state.current_page = page_num
+                            st.rerun()
+            
+            # 前へ/次へボタン
+            col_prev, col_next = st.columns([1, 1])
+            with col_prev:
+                if st.button("◀ 前へ", disabled=(st.session_state.current_page <= 1), key="prev_page", use_container_width=True):
+                    st.session_state.current_page = max(1, st.session_state.current_page - 1)
+                    st.rerun()
+            with col_next:
+                if st.button("次へ ▶", disabled=(st.session_state.current_page >= total_pages), key="next_page", use_container_width=True):
+                    st.session_state.current_page = min(total_pages, st.session_state.current_page + 1)
+                    st.rerun()
+        
+        # 現在のページに表示する結果を取得
+        start_idx = (st.session_state.current_page - 1) * items_per_page
+        end_idx = start_idx + items_per_page
+        current_page_results = st.session_state.search_results[start_idx:end_idx]
+        
         # 時間形式を変換する関数
         def format_time_display(time_str):
             """時間形式を変換（YYYYMMDDHHMM -> HH:MM）"""
