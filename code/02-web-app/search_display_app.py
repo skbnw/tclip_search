@@ -742,7 +742,8 @@ def search_master_data_advanced(
             if master_date and master_date != 'None' and master_date.strip():
                 # YYYYMMDD形式に統一
                 master_date_clean = master_date[:8] if len(master_date) >= 8 and master_date[:8].isdigit() else master_date
-                if date_str not in master_date_clean and master_date_clean not in date_str:
+                # 完全一致で比較（部分一致ではなく）
+                if master_date_clean != date_str:
                     match = False
                     continue
             else:
