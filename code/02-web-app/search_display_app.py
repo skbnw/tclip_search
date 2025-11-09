@@ -1729,8 +1729,27 @@ if search_button:
                         time_tolerance_minutes=30  # 30分以内の近似検索
                     )
             
+            # 検索結果を放送開始時間の新しい順にソート
+            def get_sort_key(master):
+                """ソート用のキーを取得（start_timeから日時を抽出）"""
+                metadata = master.get('metadata', {})
+                start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', ''))
+                
+                if start_time and len(start_time) >= 12 and start_time[:12].isdigit():
+                    # YYYYMMDDHHMM形式（12桁）の場合
+                    return int(start_time[:12])
+                elif start_time and len(start_time) >= 8 and start_time[:8].isdigit():
+                    # YYYYMMDD形式（8桁）の場合
+                    return int(start_time[:8]) * 10000  # 時間部分を0として扱う
+                else:
+                    # 日時情報がない場合は最後に表示
+                    return 0
+            
+            # 放送開始時間の新しい順（降順）にソート
+            search_results_sorted = sorted(search_results, key=get_sort_key, reverse=True)
+            
             # 検索結果をセッションステートに保存
-            st.session_state.search_results = search_results
+            st.session_state.search_results = search_results_sorted
             
             if not search_results:
                 # デバッグ情報を表示
