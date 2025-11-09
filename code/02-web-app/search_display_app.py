@@ -884,18 +884,26 @@ def search_master_data_advanced(
         # 番組名でフィルタ
         if program_name and program_name.strip():
             program_name_lower = program_name.strip().lower()
-            # 番組名の候補フィールドをチェック
+            # 番組名の候補フィールドをチェック（より多くのフィールドを対象に）
             program_fields = [
                 metadata.get('program_name', ''),
                 metadata.get('program_title', ''),
                 metadata.get('master_title', ''),
-                metadata.get('title', '')
+                metadata.get('title', ''),
+                metadata.get('番組名', ''),
+                metadata.get('番組タイトル', ''),
+                metadata.get('description', ''),
+                metadata.get('description_detail', ''),
+                metadata.get('program_detail', '')
             ]
             program_match = False
             for field_value in program_fields:
-                if field_value and program_name_lower in str(field_value).lower():
-                    program_match = True
-                    break
+                if field_value:
+                    field_value_str = str(field_value).lower()
+                    # 部分一致でチェック（大文字小文字を区別しない）
+                    if program_name_lower in field_value_str or field_value_str in program_name_lower:
+                        program_match = True
+                        break
             if not program_match:
                 match = False
                 continue
