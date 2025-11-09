@@ -569,9 +569,13 @@ with tab_detail:
         # フォーム送信時にセッションステートを更新
         if search_button_detail:
             st.session_state.search_channel = channel_detail
+            st.session_state.search_date = selected_date_detail
+            st.session_state.search_time = selected_time_detail.strftime("%H:%M") if selected_time_detail else None
             st.session_state.search_program_name = program_name_search
             st.session_state.search_genre = genre_search
             st.session_state.search_keyword = keyword
+            # 検索時にページをリセット
+            st.session_state.current_page = 1
 
 with tab_performer:
     # 出演者タブ: 放送局、キーワード
@@ -618,6 +622,8 @@ with tab_performer:
         if search_button_performer:
             st.session_state.search_channel = channel_performer
             st.session_state.search_keyword = keyword_performer
+            # 検索時にページをリセット
+            st.session_state.current_page = 1
 
 # 検索ボタンの状態を統合
 search_button = search_button_date or search_button_detail or search_button_performer
@@ -1909,6 +1915,8 @@ if search_button:
             
             # 検索結果をセッションステートに保存
             st.session_state.search_results = search_results_sorted
+            # 検索時にページをリセット
+            st.session_state.current_page = 1
             
             if not search_results:
                 # デバッグ情報を表示
