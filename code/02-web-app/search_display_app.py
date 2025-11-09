@@ -2142,6 +2142,9 @@ if st.session_state.search_results:
                         st.rerun()
                 
                 st.markdown("---")
+        
+        # スクロール可能な領域の終了タグ
+        st.markdown("</div>", unsafe_allow_html=True)
 
 else:
     # 初期状態の説明（データ範囲のみ表示）
