@@ -1765,6 +1765,36 @@ if search_button:
                             'keyword': keyword
                         })
                         
+                        # 日付フィルタの動作確認用デバッグ情報
+                        if date_str:
+                            st.markdown("**日付フィルタのデバッグ情報（最初の10件）:**")
+                            debug_date_samples = []
+                            for idx, master in enumerate(all_masters[:10]):
+                                metadata = master.get('metadata', {})
+                                # 検索フィルタと同じロジックで日付を抽出
+                                master_date = str(metadata.get('date', '')) or str(metadata.get('放送日', '')) or str(metadata.get('放送日時', ''))
+                                if not master_date or master_date == 'None' or master_date.strip() == '':
+                                    start_time = str(metadata.get('start_time', ''))
+                                    if start_time and len(start_time) >= 8:
+                                        if len(start_time) >= 8 and start_time[:8].isdigit():
+                                            master_date = start_time[:8]
+                                
+                                master_date_clean = None
+                                if master_date and master_date != 'None' and master_date.strip():
+                                    if len(master_date) >= 8 and master_date[:8].isdigit():
+                                        master_date_clean = master_date[:8]
+                                    elif len(master_date) == 8 and master_date.isdigit():
+                                        master_date_clean = master_date
+                                
+                                debug_date_samples.append({
+                                    'doc_id': master.get('doc_id', 'N/A'),
+                                    'date_field': metadata.get('date', 'N/A'),
+                                    'start_time': metadata.get('start_time', 'N/A'),
+                                    'extracted_date': master_date_clean or 'N/A',
+                                    'matches': master_date_clean == date_str if master_date_clean else False
+                                })
+                            st.json(debug_date_samples)
+                        
                         # サンプルデータの構造を確認（最初の5件）
                         if all_masters:
                             st.markdown("**サンプルデータ（最初の5件）のメタデータ構造:**")
@@ -1964,9 +1994,18 @@ if st.session_state.search_results:
             metadata = master.get('metadata', {})
             
             # 放送日時・時間
-            date_str = metadata.get('date', '') or metadata.get('broadcast_date', '')
+            # 日付情報を複数のフィールドから取得（検索フィルタと同じロジック）
+            date_str = metadata.get('date', '') or metadata.get('broadcast_date', '') or metadata.get('放送日', '') or metadata.get('放送日時', '')
             start_time = metadata.get('start_time', '')
             end_time = metadata.get('end_time', '')
+            
+            # date_strが空の場合、start_timeから日付を抽出（検索フィルタと同じロジック）
+            if not date_str or date_str == 'None' or str(date_str).strip() == '':
+                if start_time and len(str(start_time)) >= 8:
+                    start_time_str = str(start_time)
+                    # YYYYMMDDHHMM形式から日付部分を抽出
+                    if len(start_time_str) >= 8 and start_time_str[:8].isdigit():
+                        date_str = start_time_str[:8]
             
             # 時間形式を変換
             start_time_display = format_time_display(str(start_time)) if start_time else ''
