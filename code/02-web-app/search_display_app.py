@@ -494,7 +494,7 @@ with tab_date:
             selected_time = st.selectbox(
                 "🕐 時間",
                 options=[None] + time_options,
-                format_func=lambda x: x.strftime("%H:%M") if x else "選択なし",
+                format_func=lambda x: x.strftime("%H:%M") if x else "----",
                 help="時間を選択してください（30分単位、任意）",
                 key="time_input",
                 index=selected_time_index
@@ -554,7 +554,7 @@ with tab_detail:
             st.session_state.search_keyword = keyword
 
 # 検索ボタンの状態を統合
-search_button = search_button_date or search_button_detail
+search_button = search_button_date or search_button_detail or search_button_performer
 
 # 検索条件を取得（キーから直接取得、フォーム送信後は最新の値が反映されている）
 if search_button_date:
@@ -562,17 +562,18 @@ if search_button_date:
     channel = st.session_state.get("channel_date", "すべて")
     selected_date = st.session_state.get("date_input", None)
     selected_time = st.session_state.get("time_input", None)
-    # 詳細検索の値はセッションステートから取得（前回の値を保持）
+    # 他のタブの値はセッションステートから取得（前回の値を保持）
     program_name_search = st.session_state.get("search_program_name", "")
+    genre_search = st.session_state.get("search_genre", "")
     performer_search = st.session_state.get("search_performer", "")
     keyword = st.session_state.get("search_keyword", "")
 elif search_button_detail:
     # 詳細検索タブから検索
+    channel = st.session_state.get("channel_detail", "すべて")
     program_name_search = st.session_state.get("program_name_detail", "")
-    performer_search = st.session_state.get("performer_detail", "")
+    genre_search = st.session_state.get("genre_detail", "すべて")
     keyword = st.session_state.get("keyword_detail", "")
     # 日付タブの値はセッションステートから取得（前回の値を保持）
-    channel = st.session_state.get("channel_date", st.session_state.get("search_channel", "すべて"))
     selected_date = st.session_state.get("date_input", st.session_state.get("search_date", None))
     selected_time = st.session_state.get("time_input", None)
     if selected_time is None and st.session_state.get("search_time"):
@@ -580,9 +581,25 @@ elif search_button_detail:
             selected_time = datetime.strptime(st.session_state.search_time, "%H:%M").time()
         except:
             selected_time = None
+    performer_search = st.session_state.get("search_performer", "")
+elif search_button_performer:
+    # 出演者タブから検索
+    channel = st.session_state.get("channel_performer", "すべて")
+    keyword = st.session_state.get("keyword_performer", "")
+    # 他のタブの値はセッションステートから取得（前回の値を保持）
+    selected_date = st.session_state.get("date_input", st.session_state.get("search_date", None))
+    selected_time = st.session_state.get("time_input", None)
+    if selected_time is None and st.session_state.get("search_time"):
+        try:
+            selected_time = datetime.strptime(st.session_state.search_time, "%H:%M").time()
+        except:
+            selected_time = None
+    program_name_search = st.session_state.get("search_program_name", "")
+    genre_search = st.session_state.get("search_genre", "")
+    performer_search = st.session_state.get("search_performer", "")
 else:
     # 検索ボタンが押されていない場合、セッションステートから取得
-    channel = st.session_state.get("channel_date", st.session_state.get("search_channel", "すべて"))
+    channel = st.session_state.get("channel_date", st.session_state.get("channel_detail", st.session_state.get("channel_performer", st.session_state.get("search_channel", "すべて"))))
     selected_date = st.session_state.get("date_input", st.session_state.get("search_date", None))
     selected_time = st.session_state.get("time_input", None)
     if selected_time is None and st.session_state.get("search_time"):
@@ -591,8 +608,9 @@ else:
         except:
             selected_time = None
     program_name_search = st.session_state.get("program_name_detail", st.session_state.get("search_program_name", ""))
-    performer_search = st.session_state.get("performer_detail", st.session_state.get("search_performer", ""))
-    keyword = st.session_state.get("keyword_detail", st.session_state.get("search_keyword", ""))
+    genre_search = st.session_state.get("genre_detail", st.session_state.get("search_genre", ""))
+    performer_search = st.session_state.get("search_performer", "")
+    keyword = st.session_state.get("keyword_detail", st.session_state.get("keyword_performer", st.session_state.get("search_keyword", "")))
 
 # 日付と時間の文字列変換
 date_str = selected_date.strftime("%Y%m%d") if selected_date else None
