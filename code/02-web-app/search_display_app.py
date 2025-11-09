@@ -410,7 +410,7 @@ def find_nearest_time(target_time: time, time_list: List[str]) -> Optional[str]:
 st.subheader("検索条件")
 
 # タブで検索条件を切り替え
-tab_date, tab_detail = st.tabs(["📅 日付", "🔍 詳細検索"])
+tab_date, tab_detail, tab_performer = st.tabs(["📅 日付", "🔍 詳細検索", "👤 出演者"])
 
 # 検索条件の変数をセッションステートで管理（タブ間で共有）
 if 'search_channel' not in st.session_state:
@@ -421,6 +421,8 @@ if 'search_time' not in st.session_state:
     st.session_state.search_time = None
 if 'search_program_name' not in st.session_state:
     st.session_state.search_program_name = ""
+if 'search_genre' not in st.session_state:
+    st.session_state.search_genre = ""
 if 'search_performer' not in st.session_state:
     st.session_state.search_performer = ""
 if 'search_keyword' not in st.session_state:
@@ -428,6 +430,7 @@ if 'search_keyword' not in st.session_state:
 
 search_button_date = False
 search_button_detail = False
+search_button_performer = False
 
 with tab_date:
     # 日付タブ: 放送局、日付、時間
@@ -1719,7 +1722,7 @@ if search_button:
             if keyword:
                 search_conditions.append(f"キーワード: {keyword}")
             
-            # 検索条件のチェック（番組名検索も追加）
+            # 検索条件のチェック（番組名検索、ジャンル検索も追加）
             # 検索条件が空の場合のみ警告を表示
             has_search_condition = (
                 date_str or 
@@ -1727,6 +1730,7 @@ if search_button:
                 (channel and channel != "すべて") or 
                 keyword or 
                 program_name_search or 
+                (genre_search and genre_search != "すべて") or
                 performer_search
             )
             if not has_search_condition:
