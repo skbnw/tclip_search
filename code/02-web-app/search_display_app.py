@@ -1961,7 +1961,20 @@ if st.session_state.search_results:
     
     # 検索結果をスクロール可能な内部ウィンドウに表示
     # 検索条件は上部に固定され、検索結果はスクロール可能
-    results_container = st.container()
+    # スクロール可能な領域のスタイルを設定
+    st.markdown("""
+    <style>
+    .search-results-scroll {
+        max-height: 600px;
+        overflow-y: auto;
+        padding: 10px;
+        border: 1px solid #e0e0e0;
+        border-radius: 5px;
+        background-color: #fafafa;
+    }
+    </style>
+    <div class="search-results-scroll">
+    """, unsafe_allow_html=True)
     
     # 詳細表示モード（独立した画面として表示）
     if st.session_state.selected_doc_id:
