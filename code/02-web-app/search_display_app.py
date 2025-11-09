@@ -663,49 +663,40 @@ with tab_performer:
 # 検索ボタンの状態を統合
 search_button = search_button_date or search_button_detail or search_button_performer
 
-# 検索条件を取得（キーから直接取得、フォーム送信後は最新の値が反映されている）
+# 検索条件を取得（検索ボタンを押したタブの設定のみを使用）
 if search_button_date:
-    # 日付タブから検索
+    # 日付タブから検索（このタブの設定のみを使用）
     channel = st.session_state.get("channel_date", "すべて")
     selected_date = st.session_state.get("date_input", None)
     selected_time = st.session_state.get("time_input", None)
-    # 他のタブの値はセッションステートから取得（前回の値を保持）
-    program_name_search = st.session_state.get("search_program_name", "")
-    genre_search = st.session_state.get("search_genre", "")
-    performer_search = st.session_state.get("search_performer", "")
-    keyword = st.session_state.get("search_keyword", "")
+    # 他のタブの値は使用しない
+    program_name_search = ""
+    genre_search = ""
+    performer_search = ""
+    keyword = ""
 elif search_button_detail:
-    # 詳細検索タブから検索
+    # 詳細検索タブから検索（このタブの設定のみを使用）
     channel = st.session_state.get("channel_detail", "すべて")
     program_name_search = st.session_state.get("program_name_detail", "")
     genre_search = st.session_state.get("genre_detail", "すべて")
     keyword = st.session_state.get("keyword_detail", "")
     # 日付と時間を詳細検索タブから取得
-    selected_date = st.session_state.get("date_input_detail", st.session_state.get("search_date", None))
+    selected_date = st.session_state.get("date_input_detail", None)
     selected_time = st.session_state.get("time_input_detail", None)
-    if selected_time is None and st.session_state.get("search_time"):
-        try:
-            selected_time = datetime.strptime(st.session_state.search_time, "%H:%M").time()
-        except:
-            selected_time = None
-    performer_search = st.session_state.get("search_performer", "")
+    # 他のタブの値は使用しない
+    performer_search = ""
 elif search_button_performer:
-    # 出演者タブから検索
+    # 出演者タブから検索（このタブの設定のみを使用）
     channel = st.session_state.get("channel_performer", "すべて")
     keyword = st.session_state.get("keyword_performer", "")
-    # 他のタブの値はセッションステートから取得（前回の値を保持）
-    selected_date = st.session_state.get("date_input", st.session_state.get("search_date", None))
-    selected_time = st.session_state.get("time_input", None)
-    if selected_time is None and st.session_state.get("search_time"):
-        try:
-            selected_time = datetime.strptime(st.session_state.search_time, "%H:%M").time()
-        except:
-            selected_time = None
-    program_name_search = st.session_state.get("search_program_name", "")
-    genre_search = st.session_state.get("search_genre", "")
-    performer_search = st.session_state.get("search_performer", "")
+    # 他のタブの値は使用しない
+    selected_date = None
+    selected_time = None
+    program_name_search = ""
+    genre_search = ""
+    performer_search = ""
 else:
-    # 検索ボタンが押されていない場合、セッションステートから取得
+    # 検索ボタンが押されていない場合、セッションステートから取得（初期状態）
     channel = st.session_state.get("channel_date", st.session_state.get("channel_detail", st.session_state.get("channel_performer", st.session_state.get("search_channel", "すべて"))))
     selected_date = st.session_state.get("date_input", st.session_state.get("search_date", None))
     selected_time = st.session_state.get("time_input", None)
