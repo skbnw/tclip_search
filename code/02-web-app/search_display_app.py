@@ -1712,7 +1712,16 @@ if search_button:
                 search_conditions.append(f"キーワード: {keyword}")
             
             # 検索条件のチェック（番組名検索も追加）
-            if not date_str and not time_str and (not channel or channel == "すべて") and not keyword and not program_name_search and not performer_search:
+            # 検索条件が空の場合のみ警告を表示
+            has_search_condition = (
+                date_str or 
+                time_str or 
+                (channel and channel != "すべて") or 
+                keyword or 
+                program_name_search or 
+                performer_search
+            )
+            if not has_search_condition:
                 st.warning("⚠️ 検索条件を1つ以上入力してください")
             else:
                 with st.spinner(f"検索中: {', '.join(search_conditions) if search_conditions else '条件なし'}..."):
