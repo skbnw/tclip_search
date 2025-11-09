@@ -830,10 +830,26 @@ def search_master_data_advanced(
         
         # 放送局でフィルタ
         if channel and channel != "すべて":
-            master_channel = str(metadata.get('channel', ''))
-            if channel not in master_channel:
-                match = False
-                continue
+            # チャンネル情報を複数のフィールドから取得
+            master_channel = str(metadata.get('channel', '')) or str(metadata.get('channel_code', '')) or str(metadata.get('放送局', ''))
+            # 選択されたチャンネル値と実際のデータを比較（部分一致でも可）
+            # チャンネル名の先頭部分を抽出（例: "1 NHK総合1.." → "NHK"）
+            channel_clean = channel.strip()
+            # 数字とスペースを除去して比較
+            import re
+            channel_clean = re.sub(r'^\d+\s*', '', channel_clean)  # 先頭の数字とスペースを除去
+            channel_clean = re.sub(r'\.+$', '', channel_clean)  # 末尾のドットを除去
+            
+            # マスターチャンネルも同様にクリーンアップ
+            master_channel_clean = re.sub(r'^\d+\s*', '', master_channel)
+            master_channel_clean = re.sub(r'\.+$', '', master_channel_clean)
+            
+            # 部分一致でチェック（大文字小文字を区別しない）
+            if channel_clean.lower() not in master_channel_clean.lower() and master_channel_clean.lower() not in channel_clean.lower():
+                # 元の値でもチェック（フォールバック）
+                if channel not in master_channel and master_channel not in channel:
+                    match = False
+                    continue
         
         # 番組名でフィルタ
         if program_name and program_name.strip():
@@ -1708,6 +1724,17 @@ if search_button:
                         st.text("\n".join(debug_info))
                         st.info(f"💡 全データ数: {len(all_masters)} 件")
                         
+                        # 実際に使用された検索条件を表示
+                        st.markdown("**実際に使用された検索条件:**")
+                        st.json({
+                            'date_str': date_str,
+                            'time_str': time_str,
+                            'channel': channel,
+                            'program_name': program_name_search,
+                            'performer': performer_search,
+                            'keyword': keyword
+                        })
+                        
                         # サンプルデータの構造を確認（最初の5件）
                         if all_masters:
                             st.markdown("**サンプルデータ（最初の5件）のメタデータ構造:**")
@@ -1716,7 +1743,10 @@ if search_button:
                                 st.markdown(f"**サンプル {idx+1}:**")
                                 st.json({
                                     'doc_id': master.get('doc_id', 'N/A'),
+                                    'date': metadata.get('date', 'N/A'),
                                     'start_time': metadata.get('start_time', 'N/A'),
+                                    'channel': metadata.get('channel', 'N/A'),
+                                    'channel_code': metadata.get('channel_code', 'N/A'),
                                     'end_time': metadata.get('end_time', 'N/A'),
                                     '開始時間': metadata.get('開始時間', 'N/A'),
                                     '終了時間': metadata.get('終了時間', 'N/A'),
