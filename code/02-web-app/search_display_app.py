@@ -739,16 +739,27 @@ def search_master_data_advanced(
             # 日付形式を変換して比較（YYYYMMDD形式）
             # date_strはYYYYMMDD形式（例: 20251022）
             # master_dateもYYYYMMDD形式またはYYYYMMDDHHMM形式を想定
+            master_date_clean = None
             if master_date and master_date != 'None' and master_date.strip():
                 # YYYYMMDD形式に統一
-                master_date_clean = master_date[:8] if len(master_date) >= 8 and master_date[:8].isdigit() else master_date
-                # 完全一致で比較（部分一致ではなく）
+                if len(master_date) >= 8 and master_date[:8].isdigit():
+                    master_date_clean = master_date[:8]
+                elif len(master_date) == 8 and master_date.isdigit():
+                    master_date_clean = master_date
+                else:
+                    # 日付形式が不正な場合はスキップ
+                    master_date_clean = None
+            
+            # 完全一致で比較（部分一致ではなく）
+            if master_date_clean:
                 if master_date_clean != date_str:
                     match = False
                     continue
             else:
                 # 日付情報がない場合はスキップ（日付フィルタは適用しない）
-                pass
+                # ただし、日付フィルタが指定されている場合は除外
+                match = False
+                continue
         
         # 時間でフィルタ（近似検索）
         if time_str:
