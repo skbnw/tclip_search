@@ -995,23 +995,30 @@ def search_master_data_advanced(
                 match = False
                 continue
         
-        # 主演者でフィルタ
+        # 主演者でフィルタ（完全一致を優先、次に部分一致）
         if performer and performer.strip():
             performer_lower = performer.strip().lower()
             # 出演者情報を取得
             talents = metadata.get('talents', [])
             performer_match = False
             
-            # 出演者リストをチェック
+            # 出演者リストをチェック（完全一致を優先、次に部分一致）
             if talents:
                 for talent in talents:
                     if isinstance(talent, dict):
                         talent_name = talent.get('name', '') or talent.get('talent_name', '')
                     else:
                         talent_name = str(talent)
-                    if talent_name and performer_lower in talent_name.lower():
-                        performer_match = True
-                        break
+                    if talent_name:
+                        talent_name_lower = talent_name.lower()
+                        # 完全一致を優先
+                        if performer_lower == talent_name_lower:
+                            performer_match = True
+                            break
+                        # 部分一致（キーワードが出演者名に含まれる、または出演者名がキーワードに含まれる）
+                        elif performer_lower in talent_name_lower or talent_name_lower in performer_lower:
+                            performer_match = True
+                            break
             
             # 出演者名の文字列フィールドもチェック
             if not performer_match:
@@ -1021,9 +1028,16 @@ def search_master_data_advanced(
                     metadata.get('cast', '')
                 ]
                 for field_value in talent_fields:
-                    if field_value and performer_lower in str(field_value).lower():
-                        performer_match = True
-                        break
+                    if field_value:
+                        field_value_lower = str(field_value).lower()
+                        # 完全一致を優先
+                        if performer_lower == field_value_lower:
+                            performer_match = True
+                            break
+                        # 部分一致
+                        elif performer_lower in field_value_lower or field_value_lower in performer_lower:
+                            performer_match = True
+                            break
             
             if not performer_match:
                 match = False
