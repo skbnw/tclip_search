@@ -407,83 +407,107 @@ def find_nearest_time(target_time: time, time_list: List[str]) -> Optional[str]:
     return nearest_time
 
 # 検索フォーム
-with st.form("search_form"):
-    st.subheader("検索条件")
-    
-    # 上部: 放送局、日付、時間
-    search_options = get_search_options(_s3_client=s3_client)
-    
-    # 3列レイアウト（均等配置）
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        # 放送局（選択式）
-        channel_options = ["すべて"]
-        if search_options['channels']:
-            channel_options.extend(search_options['channels'])
-        else:
-            # チャンネル情報がない場合でも表示
-            st.warning("⚠️ 放送局データを読み込み中...")
+st.subheader("検索条件")
+
+# タブで検索条件を切り替え
+tab_date, tab_detail = st.tabs(["📅 日付", "🔍 詳細検索"])
+
+# 検索条件の変数を初期化
+channel = "すべて"
+selected_date = None
+date_str = None
+selected_time = None
+time_str = None
+program_name_search = ""
+performer_search = ""
+keyword = ""
+
+with tab_date:
+    # 日付タブ: 放送局、日付、時間
+    with st.form("search_form_date"):
+        search_options = get_search_options(_s3_client=s3_client)
         
-        channel = st.selectbox(
-            "放送局",
-            options=channel_options,
-            help="放送局を選択してください"
-        )
-    
-    with col2:
-        # 日付
-        selected_date = st.date_input(
-            "📆 日付",
-            value=None,
-            help="カレンダーから日付を選択してください（任意）",
-            key="date_input"
-        )
-        date_str = selected_date.strftime("%Y%m%d") if selected_date else None
-    
-    with col3:
-        # 時間（30分単位）
-        time_options = generate_time_options()
-        selected_time = st.selectbox(
-            "🕐 時間",
-            options=[None] + time_options,
-            format_func=lambda x: x.strftime("%H:%M") if x else "選択なし",
-            help="時間を選択してください（30分単位、任意）",
-            key="time_input"
-        )
-        time_str = selected_time.strftime("%H%M") if selected_time else None
-    
-    st.markdown("---")
-    
-    # 下部: 番組名検索、主演者検索、キーワード検索
-    col_program, col_performer, col_keyword = st.columns([1, 1, 1])
-    
-    with col_program:
-        program_name_search = st.text_input(
-            "番組名検索",
-            placeholder="番組名を入力してください（任意）",
-            help="番組名で検索します"
-        )
-    
-    with col_performer:
-        performer_search = st.text_input(
-            "主演者検索",
-            placeholder="出演者名を入力してください（任意）",
-            help="出演者名で検索します"
-        )
-    
-    with col_keyword:
-        keyword = st.text_input(
-            "キーワード（全文・チャンクテキスト検索）",
-            placeholder="キーワードを入力してください（任意）",
-            help="全文テキストとチャンクテキストから検索します"
-        )
-    
-    # 検索ボタン
-    search_button = st.form_submit_button("🔍 検索", use_container_width=True)
-    
-    # program_idは削除（使用しない）
-    program_id = ""
+        # 3列レイアウト（均等配置）
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            # 放送局（選択式）
+            channel_options = ["すべて"]
+            if search_options['channels']:
+                channel_options.extend(search_options['channels'])
+            else:
+                # チャンネル情報がない場合でも表示
+                st.warning("⚠️ 放送局データを読み込み中...")
+            
+            channel = st.selectbox(
+                "放送局",
+                options=channel_options,
+                help="放送局を選択してください",
+                key="channel_date"
+            )
+        
+        with col2:
+            # 日付
+            selected_date = st.date_input(
+                "📆 日付",
+                value=None,
+                help="カレンダーから日付を選択してください（任意）",
+                key="date_input"
+            )
+            date_str = selected_date.strftime("%Y%m%d") if selected_date else None
+        
+        with col3:
+            # 時間（30分単位）
+            time_options = generate_time_options()
+            selected_time = st.selectbox(
+                "🕐 時間",
+                options=[None] + time_options,
+                format_func=lambda x: x.strftime("%H:%M") if x else "選択なし",
+                help="時間を選択してください（30分単位、任意）",
+                key="time_input"
+            )
+            time_str = selected_time.strftime("%H%M") if selected_time else None
+        
+        # 検索ボタン
+        search_button_date = st.form_submit_button("🔍 検索", use_container_width=True)
+
+with tab_detail:
+    # 詳細検索タブ: 番組名、出演者検索、キーワード
+    with st.form("search_form_detail"):
+        col_program, col_performer, col_keyword = st.columns([1, 1, 1])
+        
+        with col_program:
+            program_name_search = st.text_input(
+                "番組名検索",
+                placeholder="番組名を入力してください（任意）",
+                help="番組名で検索します",
+                key="program_name_detail"
+            )
+        
+        with col_performer:
+            performer_search = st.text_input(
+                "主演者検索",
+                placeholder="出演者名を入力してください（任意）",
+                help="出演者名で検索します",
+                key="performer_detail"
+            )
+        
+        with col_keyword:
+            keyword = st.text_input(
+                "キーワード（全文・チャンクテキスト検索）",
+                placeholder="キーワードを入力してください（任意）",
+                help="全文テキストとチャンクテキストから検索します",
+                key="keyword_detail"
+            )
+        
+        # 検索ボタン
+        search_button_detail = st.form_submit_button("🔍 検索", use_container_width=True)
+
+# 検索ボタンの状態を統合
+search_button = search_button_date or search_button_detail
+
+# program_idは削除（使用しない）
+program_id = ""
 
 # セッションステートの初期化（詳細表示用）
 if 'selected_doc_id' not in st.session_state:
@@ -1879,6 +1903,8 @@ else:
     ## ⚠️ データ範囲について
     
     **現在格納されているデータ期間**: 2025年10月3日 ～ 2025年10月26日
+    
+    **格納されている放送局**: NHK、NTV、TBSのみ
     
     この期間外の日付で検索した場合、検索結果が表示されない可能性があります。
     """)
