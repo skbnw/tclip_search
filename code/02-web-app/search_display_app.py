@@ -1187,44 +1187,54 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
             # 全メタデータをJSON形式でダウンロード可能にする
             json_str = json.dumps(metadata, ensure_ascii=False, indent=2)
             
-            # ファイル名を生成（放送開始時間_放送終了時間_局名_details.json）
+            # ファイル名を生成（YYYY-MM-DD_HHMM_details.json）
             # 日付と時間を取得
-            date_str = metadata.get('date', '') or metadata.get('broadcast_date', '')
-            start_time = metadata.get('start_time', '')
-            end_time = metadata.get('end_time', '')
+            date_str = metadata.get('date', '') or metadata.get('broadcast_date', '') or metadata.get('放送日', '')
+            start_time = metadata.get('start_time', '') or metadata.get('開始時間', '')
+            end_time = metadata.get('end_time', '') or metadata.get('終了時間', '')
             channel = metadata.get('channel', '') or metadata.get('channel_code', '')
             
             # ファイル名用の形式に変換
             filename_date = ""
             filename_start = ""
-            filename_end = ""
             filename_channel = ""
             
+            # 日付をYYYY-MM-DD形式に変換
             if date_str:
                 date_str = str(date_str)
                 if len(date_str) >= 8 and date_str.isdigit():
-                    filename_date = date_str  # YYYYMMDD
+                    # YYYYMMDD形式の場合
+                    filename_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
                 elif '-' in date_str:
-                    filename_date = date_str.replace('-', '')[:8]  # YYYY-MM-DD -> YYYYMMDD
+                    # YYYY-MM-DD形式の場合
+                    filename_date = date_str[:10]  # 最初の10文字（YYYY-MM-DD）
+                else:
+                    # その他の形式の場合、start_timeから日付を抽出
+                    if start_time and len(str(start_time)) >= 8:
+                        start_time_str = str(start_time)
+                        if len(start_time_str) >= 8 and start_time_str[:8].isdigit():
+                            # YYYYMMDDHHMM形式から日付部分を抽出
+                            filename_date = f"{start_time_str[:4]}-{start_time_str[4:6]}-{start_time_str[6:8]}"
             
+            # 開始時間をHHMM形式（4桁）に変換
             if start_time:
                 start_time_str = str(start_time)
-                if len(start_time_str) >= 4:
-                    if ':' in start_time_str:
-                        filename_start = start_time_str.replace(':', '')[:4]  # HH:MM -> HHMM
-                    else:
-                        filename_start = start_time_str[:4]  # HHMM
+                if ':' in start_time_str:
+                    # HH:MM形式の場合
+                    parts = start_time_str.split(':')
+                    if len(parts) >= 2:
+                        hour = parts[0].zfill(2)
+                        minute = parts[1].zfill(2)
+                        filename_start = f"{hour}{minute}"
+                elif len(start_time_str) >= 12 and start_time_str[:12].isdigit():
+                    # YYYYMMDDHHMM形式（12桁）の場合
+                    filename_start = start_time_str[8:12]  # HHMM部分を抽出
+                elif len(start_time_str) >= 4:
+                    # HHMM形式（4桁以上）の場合
+                    filename_start = start_time_str[:4].zfill(4)
             
-            if end_time:
-                end_time_str = str(end_time)
-                if len(end_time_str) >= 4:
-                    if ':' in end_time_str:
-                        filename_end = end_time_str.replace(':', '')[:4]  # HH:MM -> HHMM
-                    else:
-                        filename_end = end_time_str[:4]  # HHMM
-            
+            # チャンネル名を英語化（簡易版）
             if channel:
-                # チャンネル名を英語化（簡易版）
                 channel_mapping = {
                     'NHK総合': 'NHK',
                     'NHK Eテレ': 'NHK-ETV',
@@ -1232,13 +1242,23 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
                     '日本テレビ': 'NTV',
                     'TBS': 'TBS',
                     'テレビ朝日': 'TV-ASAHI',
-                    'テレビ東京': 'TV-TOKYO'
+                    'テレビ東京': 'TV-TOKYO',
+                    '1 NHK総合1..': 'NHK',
+                    'NHKG-TKY': 'NHK'
                 }
-                filename_channel = channel_mapping.get(channel, channel.replace(' ', '-').replace('　', '-'))
+                # チャンネル名の先頭部分を抽出（例: "1 NHK総合1.." → "NHK"）
+                channel_clean = channel.strip()
+                import re
+                channel_clean = re.sub(r'^\d+\s*', '', channel_clean)  # 先頭の数字とスペースを除去
+                channel_clean = re.sub(r'\.+$', '', channel_clean)  # 末尾のドットを除去
+                filename_channel = channel_mapping.get(channel_clean, channel_mapping.get(channel, channel.replace(' ', '-').replace('　', '-')))
             
-            # ファイル名を生成
-            if filename_date and filename_start and filename_end and filename_channel:
-                json_filename = f"{filename_date}_{filename_start}_{filename_end}_{filename_channel}_details.json"
+            # ファイル名を生成（YYYY-MM-DD_HHMM_details.json）
+            if filename_date and filename_start:
+                if filename_channel:
+                    json_filename = f"{filename_date}_{filename_start}_{filename_channel}_details.json"
+                else:
+                    json_filename = f"{filename_date}_{filename_start}_details.json"
             else:
                 json_filename = f"metadata_{doc_id}.json"
             
