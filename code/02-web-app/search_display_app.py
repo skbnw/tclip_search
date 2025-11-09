@@ -41,32 +41,7 @@ st.set_page_config(
     }
 )
 
-# ベーシック認証
-AUTH_USERNAME = "tclip"
-AUTH_PASSWORD = "tclip"
-
-# セッションステートの初期化
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = False
-
-# 認証チェック
-if not st.session_state.authenticated:
-    st.title("🔐 認証が必要です")
-    
-    # 認証フォーム
-    with st.form("auth_form"):
-        username = st.text_input("ユーザー名", placeholder="ユーザー名を入力してください")
-        password = st.text_input("パスワード", type="password", placeholder="パスワードを入力してください")
-        submit_button = st.form_submit_button("ログイン", use_container_width=True)
-        
-        if submit_button:
-            if username == AUTH_USERNAME and password == AUTH_PASSWORD:
-                st.session_state.authenticated = True
-                st.rerun()
-            else:
-                st.error("❌ ユーザー名またはパスワードが正しくありません")
-    
-    st.stop()  # 認証が完了するまでアプリの実行を停止
+# ベーシック認証は解除しました
 
 # タイトル（ロゴとタイトルを横並びに）
 col_logo, col_title = st.columns([1, 10])
@@ -315,13 +290,14 @@ def list_all_master_data(_s3_client) -> List[Dict]:
 # 検索オプションの取得（初回のみ読み込み）
 @st.cache_data(ttl=3600)  # 1時間キャッシュ
 def get_search_options(_s3_client) -> Dict[str, List[str]]:
-    """検索用のオプション（日付、時間、放送局）を取得"""
+    """検索用のオプション（日付、時間、放送局、ジャンル）を取得"""
     try:
         all_masters = list_all_master_data(_s3_client)
         
         dates = set()
         times = set()
         channels = set()
+        genres = set()
         
         for master in all_masters:
             metadata = master.get('metadata', {})
@@ -349,15 +325,24 @@ def get_search_options(_s3_client) -> Dict[str, List[str]]:
                 channel = str(metadata['channel'])
                 if channel:
                     channels.add(channel)
+            
+            # ジャンル
+            genre_fields = ['genre', 'ジャンル', 'program_genre', 'category', 'カテゴリ']
+            for field in genre_fields:
+                if field in metadata:
+                    genre_value = str(metadata[field])
+                    if genre_value and genre_value.strip() and genre_value != 'None':
+                        genres.add(genre_value.strip())
         
         return {
             'dates': sorted(list(dates)),
             'times': sorted(list(times)),
-            'channels': sorted(list(channels))
+            'channels': sorted(list(channels)),
+            'genres': sorted(list(genres))
         }
     except Exception as e:
         st.error(f"検索オプションの取得エラー: {str(e)}")
-        return {'dates': [], 'times': [], 'channels': []}
+        return {'dates': [], 'times': [], 'channels': [], 'genres': []}
 
 # 30分単位の時間リスト生成
 def generate_time_options():
@@ -654,9 +639,9 @@ elif search_button_detail:
     program_name_search = st.session_state.get("program_name_detail", "")
     genre_search = st.session_state.get("genre_detail", "すべて")
     keyword = st.session_state.get("keyword_detail", "")
-    # 日付タブの値はセッションステートから取得（前回の値を保持）
-    selected_date = st.session_state.get("date_input", st.session_state.get("search_date", None))
-    selected_time = st.session_state.get("time_input", None)
+    # 日付と時間を詳細検索タブから取得
+    selected_date = st.session_state.get("date_input_detail", st.session_state.get("search_date", None))
+    selected_time = st.session_state.get("time_input_detail", None)
     if selected_time is None and st.session_state.get("search_time"):
         try:
             selected_time = datetime.strptime(st.session_state.search_time, "%H:%M").time()
@@ -2186,7 +2171,7 @@ if st.session_state.search_results:
         
         # 結果をテーブル形式で表示
         results_data = []
-        for idx, master in enumerate(st.session_state.search_results):
+        for idx, master in enumerate(current_page_results):
             doc_id = master.get('doc_id', '')
             metadata = master.get('metadata', {})
             
