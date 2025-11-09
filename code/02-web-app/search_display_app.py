@@ -510,37 +510,71 @@ with tab_date:
             st.session_state.search_time = selected_time.strftime("%H:%M") if selected_time else None
 
 with tab_detail:
-    # 詳細検索タブ: 番組名、出演者検索、キーワード
+    # 詳細検索タブ: 放送局、番組名、ジャンル、キーワード（全文・テキスト検索）
     with st.form("search_form_detail"):
-        col_program, col_performer, col_keyword = st.columns([1, 1, 1])
+        search_options = get_search_options(_s3_client=s3_client)
+        
+        # 放送局
+        col_channel = st.columns([1])[0]
+        with col_channel:
+            channel_options = ["すべて"]
+            if search_options['channels']:
+                channel_options.extend(search_options['channels'])
+            
+            initial_channel_index = 0
+            if 'channel_detail' in st.session_state and st.session_state.channel_detail in channel_options:
+                initial_channel_index = channel_options.index(st.session_state.channel_detail)
+            elif st.session_state.search_channel in channel_options:
+                initial_channel_index = channel_options.index(st.session_state.search_channel)
+            
+            channel_detail = st.selectbox(
+                "放送局",
+                options=channel_options,
+                help="放送局を選択してください",
+                key="channel_detail",
+                index=initial_channel_index
+            )
+        
+        # 番組名、ジャンル、キーワード
+        col_program, col_genre, col_keyword = st.columns([1, 1, 1])
         
         with col_program:
             initial_program_name = st.session_state.search_program_name if 'search_program_name' in st.session_state else ""
             program_name_search = st.text_input(
-                "番組名検索",
+                "番組名",
                 value=initial_program_name,
                 placeholder="番組名を入力してください（任意）",
                 help="番組名で検索します",
                 key="program_name_detail"
             )
         
-        with col_performer:
-            initial_performer = st.session_state.search_performer if 'search_performer' in st.session_state else ""
-            performer_search = st.text_input(
-                "主演者検索",
-                value=initial_performer,
-                placeholder="出演者名を入力してください（任意）",
-                help="出演者名で検索します",
-                key="performer_detail"
+        with col_genre:
+            # ジャンルをプルダウンで選択
+            genre_options = ["すべて"]
+            if search_options.get('genres'):
+                genre_options.extend(search_options['genres'])
+            
+            initial_genre_index = 0
+            if 'genre_detail' in st.session_state and st.session_state.genre_detail in genre_options:
+                initial_genre_index = genre_options.index(st.session_state.genre_detail)
+            elif st.session_state.search_genre in genre_options:
+                initial_genre_index = genre_options.index(st.session_state.search_genre)
+            
+            genre_search = st.selectbox(
+                "ジャンル",
+                options=genre_options,
+                help="ジャンルを選択してください",
+                key="genre_detail",
+                index=initial_genre_index
             )
         
         with col_keyword:
             initial_keyword = st.session_state.search_keyword if 'search_keyword' in st.session_state else ""
             keyword = st.text_input(
-                "キーワード（全文・チャンクテキスト検索）",
+                "キーワード（全文・テキスト検索）",
                 value=initial_keyword,
                 placeholder="キーワードを入力してください（任意）",
-                help="全文テキストとチャンクテキストから検索します",
+                help="全文テキストとチャンクテキストから検索します（現在はテキストマッチング検索）",
                 key="keyword_detail"
             )
         
@@ -549,9 +583,56 @@ with tab_detail:
         
         # フォーム送信時にセッションステートを更新
         if search_button_detail:
+            st.session_state.search_channel = channel_detail
             st.session_state.search_program_name = program_name_search
-            st.session_state.search_performer = performer_search
+            st.session_state.search_genre = genre_search
             st.session_state.search_keyword = keyword
+
+with tab_performer:
+    # 出演者タブ: 放送局、キーワード
+    with st.form("search_form_performer"):
+        search_options = get_search_options(_s3_client=s3_client)
+        
+        # 放送局
+        col_channel = st.columns([1])[0]
+        with col_channel:
+            channel_options = ["すべて"]
+            if search_options['channels']:
+                channel_options.extend(search_options['channels'])
+            
+            initial_channel_index = 0
+            if 'channel_performer' in st.session_state and st.session_state.channel_performer in channel_options:
+                initial_channel_index = channel_options.index(st.session_state.channel_performer)
+            elif st.session_state.search_channel in channel_options:
+                initial_channel_index = channel_options.index(st.session_state.search_channel)
+            
+            channel_performer = st.selectbox(
+                "放送局",
+                options=channel_options,
+                help="放送局を選択してください",
+                key="channel_performer",
+                index=initial_channel_index
+            )
+        
+        # キーワード
+        col_keyword = st.columns([1])[0]
+        with col_keyword:
+            initial_keyword = st.session_state.search_keyword if 'search_keyword' in st.session_state else ""
+            keyword_performer = st.text_input(
+                "キーワード（全文・テキスト検索）",
+                value=initial_keyword,
+                placeholder="キーワードを入力してください（任意）",
+                help="全文テキストとチャンクテキストから検索します（現在はテキストマッチング検索）",
+                key="keyword_performer"
+            )
+        
+        # 検索ボタン
+        search_button_performer = st.form_submit_button("🔍 検索", use_container_width=True)
+        
+        # フォーム送信時にセッションステートを更新
+        if search_button_performer:
+            st.session_state.search_channel = channel_performer
+            st.session_state.search_keyword = keyword_performer
 
 # 検索ボタンの状態を統合
 search_button = search_button_date or search_button_detail or search_button_performer
