@@ -725,11 +725,29 @@ def search_master_data_advanced(
         
         # 日付でフィルタ
         if date_str:
-            master_date = str(metadata.get('date', ''))
+            # 日付情報を複数のフィールドから取得
+            master_date = str(metadata.get('date', '')) or str(metadata.get('放送日', '')) or str(metadata.get('放送日時', ''))
+            
+            # start_timeやend_timeから日付を抽出（YYYYMMDDHHMM形式の場合）
+            if not master_date or master_date == 'None' or master_date.strip() == '':
+                start_time = str(metadata.get('start_time', ''))
+                if start_time and len(start_time) >= 8:
+                    # YYYYMMDDHHMM形式から日付部分を抽出
+                    if len(start_time) >= 8 and start_time[:8].isdigit():
+                        master_date = start_time[:8]
+            
             # 日付形式を変換して比較（YYYYMMDD形式）
-            if date_str not in master_date:
-                match = False
-                continue
+            # date_strはYYYYMMDD形式（例: 20251022）
+            # master_dateもYYYYMMDD形式またはYYYYMMDDHHMM形式を想定
+            if master_date and master_date != 'None' and master_date.strip():
+                # YYYYMMDD形式に統一
+                master_date_clean = master_date[:8] if len(master_date) >= 8 and master_date[:8].isdigit() else master_date
+                if date_str not in master_date_clean and master_date_clean not in date_str:
+                    match = False
+                    continue
+            else:
+                # 日付情報がない場合はスキップ（日付フィルタは適用しない）
+                pass
         
         # 時間でフィルタ（近似検索）
         if time_str:
