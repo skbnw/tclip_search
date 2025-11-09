@@ -29,6 +29,7 @@ S3_REGION = "ap-northeast-1"
 S3_MASTER_PREFIX = "rag/master_text/"
 S3_CHUNK_PREFIX = "rag/vector_chunks/"
 S3_IMAGE_PREFIX = "rag/images/"
+S3_AUDIO_PREFIX = "rag/audio/"  # 音声ファイル用のプレフィックス
 
 # ページ設定
 st.set_page_config(
@@ -392,7 +393,47 @@ def find_nearest_time(target_time: time, time_list: List[str]) -> Optional[str]:
     return nearest_time
 
 # 検索フォーム
-st.subheader("検索条件")
+col_title, col_clear = st.columns([7, 3])
+with col_title:
+    st.subheader("検索条件")
+with col_clear:
+    # クリアボタンを表示（上部に配置）
+    if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button"):
+        # 検索条件をクリア
+        st.session_state.search_channel = "すべて"
+        st.session_state.search_date = None
+        st.session_state.search_time = None
+        st.session_state.search_program_name = ""
+        st.session_state.search_genre = ""
+        st.session_state.search_performer = ""
+        st.session_state.search_keyword = ""
+        st.session_state.search_results = []
+        st.session_state.selected_doc_id = None
+        st.session_state.current_page = 1
+        # 各タブの入力フィールドもクリア
+        if 'channel_date' in st.session_state:
+            st.session_state.channel_date = "すべて"
+        if 'channel_detail' in st.session_state:
+            st.session_state.channel_detail = "すべて"
+        if 'channel_performer' in st.session_state:
+            st.session_state.channel_performer = "すべて"
+        if 'date_input' in st.session_state:
+            st.session_state.date_input = None
+        if 'date_input_detail' in st.session_state:
+            st.session_state.date_input_detail = None
+        if 'time_input' in st.session_state:
+            st.session_state.time_input = None
+        if 'time_input_detail' in st.session_state:
+            st.session_state.time_input_detail = None
+        if 'program_name_detail' in st.session_state:
+            st.session_state.program_name_detail = ""
+        if 'genre_detail' in st.session_state:
+            st.session_state.genre_detail = "すべて"
+        if 'keyword_detail' in st.session_state:
+            st.session_state.keyword_detail = ""
+        if 'keyword_performer' in st.session_state:
+            st.session_state.keyword_performer = ""
+        st.rerun()
 
 # タブで検索条件を切り替え
 tab_date, tab_detail, tab_performer = st.tabs(["📅 日付", "🔍 詳細検索", "👤 出演者"])
@@ -1584,7 +1625,8 @@ api_key = "YOUR_GROQ_API_KEY"
                             filename = ''
                         
                         # 画像を表示（撮影時間をキャプションに）
-                        st.image(img_url, caption=timestamp, use_container_width=True)
+                        # サイズを固定してレイアウトの揺れを防ぐ
+                        st.image(img_url, caption=timestamp, width=300)
                         
                         # クリックでチャンクタブに飛ぶボタン
                         if filename:
@@ -1693,6 +1735,63 @@ api_key = "YOUR_GROQ_API_KEY"
     
     with tab5:
         st.subheader("チャンク")
+        
+        # audio再生プレーヤーを表示（チャンクセクション全体の上）
+        audio_urls = master_data.get('audio_urls', [])
+        
+        # デバッグ情報（開発用）
+        if not audio_urls or len(audio_urls) == 0:
+            # audio_urlsが存在しない場合の情報を表示
+            st.info(f"ℹ️ 音声ファイルが見つかりませんでした（doc_id: {doc_id}）。v1.4でアップロードしたデータか確認してください。")
+            # マスターデータのキーを確認
+            with st.expander("デバッグ情報（クリックして展開）"):
+                st.write(f"マスターデータのキー: {list(master_data.keys())}")
+                st.write(f"audio_urlsの値: {audio_urls}")
+                st.write(f"audio_urlsの型: {type(audio_urls)}")
+        
+        if audio_urls and len(audio_urls) > 0:
+            st.markdown("### 🎵 音声ファイル")
+            for audio_url in audio_urls:
+                # S3 URLからファイル名を抽出
+                # 例: s3://tclip-raw-data-2025/rag/audio/{doc_id}/{filename}
+                try:
+                    # S3 URLからファイル名を抽出
+                    if audio_url and isinstance(audio_url, str) and audio_url.startswith('s3://'):
+                        # s3://bucket/key 形式からファイル名を抽出
+                        parts = audio_url.split('/')
+                        if len(parts) >= 2:
+                            filename = parts[-1]
+                            if filename:
+                                # S3キーを生成
+                                audio_key = f"{S3_AUDIO_PREFIX}{doc_id}/{filename}"
+                                # 署名付きURLを生成
+                                try:
+                                    audio_download_url = s3_client.generate_presigned_url(
+                                        'get_object',
+                                        Params={'Bucket': S3_BUCKET_NAME, 'Key': audio_key},
+                                        ExpiresIn=3600
+                                    )
+                                    # 音声プレーヤーを表示
+                                    st.markdown(f"**{filename}**")
+                                    # ファイル拡張子に応じて形式を指定
+                                    ext = os.path.splitext(filename)[1].lower()
+                                    format_map = {
+                                        '.mp3': 'audio/mpeg',
+                                        '.wav': 'audio/wav',
+                                        '.m4a': 'audio/mp4',
+                                        '.aac': 'audio/aac',
+                                        '.ogg': 'audio/ogg',
+                                        '.flac': 'audio/flac'
+                                    }
+                                    audio_format = format_map.get(ext, 'audio/mpeg')
+                                    st.audio(audio_download_url, format=audio_format)
+                                except Exception as e:
+                                    # ファイルが見つからない場合はスキップ
+                                    st.warning(f"音声ファイルのURL生成エラー: {filename} - {str(e)}")
+                except Exception as e:
+                    st.warning(f"音声ファイルの処理エラー: {str(e)}")
+            st.markdown("---")
+        
         if chunks:
             # チャンク検索
             chunk_keyword = st.text_input(
@@ -1820,6 +1919,61 @@ api_key = "YOUR_GROQ_API_KEY"
                                 pass
                         except Exception as e:
                             pass
+                    
+                    # チャンクの下に音声再生ボタンを表示
+                    audio_urls = master_data.get('audio_urls', [])
+                    
+                    # デバッグ情報（開発用）
+                    if not audio_urls or len(audio_urls) == 0:
+                        # audio_urlsが存在しない場合の情報を表示
+                        with st.expander("デバッグ情報（音声ファイル）", expanded=False):
+                            st.write(f"マスターデータのキー: {list(master_data.keys()) if master_data else 'master_dataがNone'}")
+                            st.write(f"audio_urlsの値: {audio_urls}")
+                            st.write(f"audio_urlsの型: {type(audio_urls)}")
+                            st.write(f"doc_id: {doc_id}")
+                    
+                    if audio_urls and len(audio_urls) > 0:
+                        st.markdown("---")
+                        st.markdown("### 🎵 音声再生")
+                        for audio_url in audio_urls:
+                            # S3 URLからファイル名を抽出
+                            # 例: s3://tclip-raw-data-2025/rag/audio/{doc_id}/{filename}
+                            try:
+                                # S3 URLからファイル名を抽出
+                                if audio_url and isinstance(audio_url, str) and audio_url.startswith('s3://'):
+                                    # s3://bucket/key 形式からファイル名を抽出
+                                    parts = audio_url.split('/')
+                                    if len(parts) >= 2:
+                                        filename = parts[-1]
+                                        if filename:
+                                            # S3キーを生成
+                                            audio_key = f"{S3_AUDIO_PREFIX}{doc_id}/{filename}"
+                                            # 署名付きURLを生成
+                                            try:
+                                                audio_download_url = s3_client.generate_presigned_url(
+                                                    'get_object',
+                                                    Params={'Bucket': S3_BUCKET_NAME, 'Key': audio_key},
+                                                    ExpiresIn=3600
+                                                )
+                                                # 音声プレーヤーを表示
+                                                st.markdown(f"**{filename}**")
+                                                # ファイル拡張子に応じて形式を指定
+                                                ext = os.path.splitext(filename)[1].lower()
+                                                format_map = {
+                                                    '.mp3': 'audio/mpeg',
+                                                    '.wav': 'audio/wav',
+                                                    '.m4a': 'audio/mp4',
+                                                    '.aac': 'audio/aac',
+                                                    '.ogg': 'audio/ogg',
+                                                    '.flac': 'audio/flac'
+                                                }
+                                                audio_format = format_map.get(ext, 'audio/mpeg')
+                                                st.audio(audio_download_url, format=audio_format)
+                                            except Exception as e:
+                                                # ファイルが見つからない場合はスキップ
+                                                pass
+                            except Exception as e:
+                                pass
             
             # チャンクが表示された後にフラグをクリア
             if target_chunk_filename and chunk_displayed:
@@ -2129,7 +2283,7 @@ if search_button:
 # 検索結果のリスト表示（詳細表示前に）
 if st.session_state.search_results:
     st.markdown("---")
-    st.subheader("📋 検索結果")
+    st.subheader("検索結果")
     
     # 検索結果をスクロール可能な内部ウィンドウに表示
     # 検索条件は上部に固定され、検索結果はスクロール可能
