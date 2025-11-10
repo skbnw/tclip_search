@@ -377,10 +377,10 @@ def get_search_options(_s3_client) -> Dict[str, List[str]]:
         st.error(f"検索オプションの取得エラー: {str(e)}")
         return {'dates': [], 'times': [], 'channels': [], 'genres': []}
 
-# 番組名リストの取得（初回のみ読み込み、ジャンルでフィルタリング可能）
+# 番組名リストの取得（初回のみ読み込み、ジャンルとテレビ局でフィルタリング可能）
 @st.cache_data(ttl=3600)  # 1時間キャッシュ
-def get_program_names(_s3_client, genre_filter: str = None) -> List[str]:
-    """データベースから番組名のリストを取得（ジャンルでフィルタリング可能）"""
+def get_program_names(_s3_client, genre_filter: str = None, channel_filters: List[str] = None) -> List[str]:
+    """データベースから番組名のリストを取得（ジャンルとテレビ局でフィルタリング可能）"""
     try:
         all_masters = list_all_master_data(_s3_client)
         
@@ -413,7 +413,42 @@ def get_program_names(_s3_client, genre_filter: str = None) -> List[str]:
                     continue
             
             # テレビ局でフィルタリング（指定されている場合）
-            # 注: channel_filtersパラメータは後で追加されるため、ここではチェックしない
+            if channel_filters and len(channel_filters) > 0 and "すべて" not in channel_filters:
+                channel_match = False
+                # チャンネル情報を複数のフィールドから取得
+                master_channel = str(metadata.get('channel', '')) or str(metadata.get('channel_code', '')) or str(metadata.get('放送局', ''))
+                
+                if master_channel and master_channel.strip():
+                    master_channel_lower = master_channel.strip().lower()
+                    # 選択されたチャンネルと比較
+                    for selected_channel in channel_filters:
+                        selected_channel_lower = selected_channel.strip().lower()
+                        # チャンネル名のマッピング
+                        channel_mapping = {
+                            'nhk総合': ['nhk', 'nhk総合', 'nhkg-tky', 'nhk総合1..', '1 nhk総合1..'],
+                            'nhk eテレ': ['nhk eテレ', 'nhk-etv', 'eテレ', 'nhk eテレ'],
+                            '日本テレビ': ['日本テレビ', 'ntv', '日テレ', '日本テレビ'],
+                            'tbs': ['tbs'],
+                            'フジテレビ': ['フジテレビ', 'fuji', 'fuji-tv', 'フジ'],
+                            'テレビ朝日': ['テレビ朝日', 'tv-asahi', '朝日', 'テレビ朝日'],
+                            'テレビ東京': ['テレビ東京', 'tv-tokyo', 'テレ東', 'テレビ東京']
+                        }
+                        
+                        # マッピングから候補を取得
+                        candidates = channel_mapping.get(selected_channel_lower, [selected_channel_lower])
+                        
+                        # 部分一致でチェック
+                        for candidate in candidates:
+                            if candidate.lower() in master_channel_lower or master_channel_lower in candidate.lower():
+                                channel_match = True
+                                break
+                        
+                        if channel_match:
+                            break
+                
+                # テレビ局が一致しない場合はスキップ
+                if not channel_match:
+                    continue
             
             # 番組名の候補フィールドをチェック
             program_fields = [
