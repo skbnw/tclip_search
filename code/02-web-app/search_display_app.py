@@ -943,7 +943,7 @@ with tab_performer:
         col_performer = st.columns([1])[0]
         with col_performer:
             # 出演者名リストを取得
-            performer_names_list = get_performer_names(_s3_client)
+            performer_names_list = get_performer_names(_s3_client=s3_client)
             
             # セッションステートから初期値を取得
             initial_performer = st.session_state.get("performer_performer", st.session_state.get("search_performer", ""))
