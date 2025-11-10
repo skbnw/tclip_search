@@ -1002,9 +1002,18 @@ with tab_program_type:
         # フォーム送信時にセッションステートを更新
         if search_button_program_type:
             st.session_state.search_period_type = period_type
-            st.session_state.search_start_date = start_date_program
-            st.session_state.search_end_date = end_date_program
+            if period_type == "カスタム":
+                st.session_state.search_start_date = start_date_program
+                st.session_state.search_end_date = end_date_program
+            else:
+                st.session_state.search_start_date = None
+                st.session_state.search_end_date = None
+            if period_type == "曜日":
+                st.session_state.search_weekday = selected_weekday
+            else:
+                st.session_state.search_weekday = None
             st.session_state.search_genre_program = genre_program
+            st.session_state.search_channels_program = selected_channels
             st.session_state.search_program_names = selected_program_names
             # 検索時にページをリセット
             st.session_state.current_page = 1
@@ -1062,8 +1071,13 @@ elif search_button_performer:
 elif search_button_program_type:
     # 番組選択タブから検索（このタブの設定のみを使用）
     period_type_search = st.session_state.get("period_type", "すべて")
-    start_date_search = None
-    end_date_search = None
+    if period_type_search == "カスタム":
+        start_date_search = st.session_state.get("search_start_date", None)
+        end_date_search = st.session_state.get("search_end_date", None)
+    else:
+        start_date_search = None
+        end_date_search = None
+    weekday_search = st.session_state.get("search_weekday", None) if period_type_search == "曜日" else None
     genre_program_search = st.session_state.get("genre_program", "すべて")
     channels_program_search = st.session_state.get("search_channels_program", [])
     program_names_search = st.session_state.get("program_names_multiselect", [])
@@ -1581,6 +1595,48 @@ def search_master_data_advanced(
                     if master_date_int < last_monday_int or master_date_int > last_sunday_int:
                         match = False
                         continue
+                elif period_type == "1カ月内":
+                    # 1ヶ月前から今日まで
+                    one_month_ago = today - timedelta(days=30)
+                    one_month_ago_str = one_month_ago.strftime("%Y%m%d")
+                    one_month_ago_int = int(one_month_ago_str)
+                    if master_date_int < one_month_ago_int or master_date_int > today_int:
+                        match = False
+                        continue
+                elif period_type == "曜日" and weekday:
+                    # 曜日でフィルタ（指定された曜日のデータのみ）
+                    # 日付から曜日を取得
+                    try:
+                        from datetime import datetime as dt
+                        master_date_obj = dt.strptime(master_date_clean, "%Y%m%d")
+                        master_weekday = master_date_obj.weekday()  # 0=月曜日、6=日曜日
+                        
+                        # 曜日名を数値に変換
+                        weekday_map = {
+                            "月曜日": 0, "火曜日": 1, "水曜日": 2, "木曜日": 3,
+                            "金曜日": 4, "土曜日": 5, "日曜日": 6
+                        }
+                        target_weekday = weekday_map.get(weekday, None)
+                        
+                        if target_weekday is not None and master_weekday != target_weekday:
+                            match = False
+                            continue
+                    except:
+                        # 日付の解析に失敗した場合はスキップ
+                        match = False
+                        continue
+                elif period_type == "カスタム" and (start_date or end_date):
+                    # カスタム期間
+                    if start_date:
+                        start_date_int = int(start_date.replace('-', ''))
+                        if master_date_int < start_date_int:
+                            match = False
+                            continue
+                    if end_date:
+                        end_date_int = int(end_date.replace('-', ''))
+                        if master_date_int > end_date_int:
+                            match = False
+                            continue
             else:
                 # 日付情報がない場合は除外（期間フィルタが指定されている場合）
                 if period_type != "すべて":
@@ -2627,15 +2683,21 @@ if search_button:
                 search_conditions.append(f"キーワード: {keyword}")
             if program_names_search and len(program_names_search) > 0:
                 search_conditions.append(f"番組名: {', '.join(program_names_search)}")
-            if period_type_search and period_type_search != "オール":
-                search_conditions.append(f"期間: {period_type_search}")
-                if period_type_search == "カスタム":
+            if period_type_search and period_type_search != "すべて":
+                period_display = period_type_search
+                if period_type_search == "曜日" and weekday_search:
+                    period_display = f"{period_type_search} ({weekday_search})"
+                elif period_type_search == "カスタム":
+                    period_display = period_type_search
                     if start_date_search:
-                        search_conditions.append(f"開始日: {start_date_search.strftime('%Y年%m月%d日')}")
+                        period_display = f"{period_type_search} (開始: {start_date_search.strftime('%Y年%m月%d日')})"
                     if end_date_search:
-                        search_conditions.append(f"終了日: {end_date_search.strftime('%Y年%m月%d日')}")
+                        period_display = f"{period_type_search} (終了: {end_date_search.strftime('%Y年%m月%d日')})"
+                search_conditions.append(f"期間: {period_display}")
             if genre_program_search and genre_program_search != "すべて":
                 search_conditions.append(f"ジャンル: {genre_program_search}")
+            if channels_program_search and len(channels_program_search) > 0 and "すべて" not in channels_program_search:
+                search_conditions.append(f"テレビ局: {', '.join(channels_program_search)}")
             
             # 検索条件のチェック（番組名検索、ジャンル検索も追加）
             # 検索条件が空の場合のみ警告を表示
@@ -2672,10 +2734,12 @@ if search_button:
                         performer=performer_search if performer_search else "",
                         genre=genre_search if genre_search and genre_search != "すべて" else "",
                         program_names=program_names_search if program_names_search and len(program_names_search) > 0 else None,
-                        period_type=period_type_search if period_type_search else "オール",
+                        period_type=period_type_search if period_type_search else "すべて",
                         start_date=start_date_str,
                         end_date=end_date_str,
+                        weekday=weekday_search if period_type_search == "曜日" else None,
                         genre_program=genre_program_search if genre_program_search and genre_program_search != "すべて" else "すべて",
+                        channels_program=channels_program_search if channels_program_search and len(channels_program_search) > 0 and "すべて" not in channels_program_search else None,
                         time_tolerance_minutes=30  # 30分以内の近似検索
                     )
             
