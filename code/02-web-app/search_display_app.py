@@ -562,15 +562,19 @@ with col_clear:
         if 'search_program_names' in st.session_state:
             st.session_state.search_program_names = []
         if 'search_period_type' in st.session_state:
-            st.session_state.search_period_type = "オール"
+            st.session_state.search_period_type = "すべて"
         if 'search_start_date' in st.session_state:
             st.session_state.search_start_date = None
         if 'search_end_date' in st.session_state:
             st.session_state.search_end_date = None
+        if 'search_weekdays' in st.session_state:
+            st.session_state.search_weekdays = []
         if 'search_genre_program' in st.session_state:
             st.session_state.search_genre_program = "すべて"
         if 'search_channels_program' in st.session_state:
             st.session_state.search_channels_program = []
+        if 'search_program_names' in st.session_state:
+            st.session_state.search_program_names = []
         # 番組選択タブの入力フィールドもクリア
         if 'period_type' in st.session_state:
             st.session_state.period_type = "すべて"
@@ -582,6 +586,30 @@ with col_clear:
             st.session_state.start_date_input_program = None
         if 'end_date_input_program' in st.session_state:
             st.session_state.end_date_input_program = None
+        if 'selected_weekdays' in st.session_state:
+            st.session_state.selected_weekdays = []
+        # テレビ局選択のチェックボックスをクリア
+        if 'channel_all_program' in st.session_state:
+            st.session_state.channel_all_program = True  # 「すべて」を選択状態にする
+        if 'channel_nhk_program' in st.session_state:
+            st.session_state.channel_nhk_program = False
+        if 'channel_nhk_etv_program' in st.session_state:
+            st.session_state.channel_nhk_etv_program = False
+        if 'channel_ntv_program' in st.session_state:
+            st.session_state.channel_ntv_program = False
+        if 'channel_tbs_program' in st.session_state:
+            st.session_state.channel_tbs_program = False
+        if 'channel_fuji_program' in st.session_state:
+            st.session_state.channel_fuji_program = False
+        if 'channel_tv_asahi_program' in st.session_state:
+            st.session_state.channel_tv_asahi_program = False
+        if 'channel_tv_tokyo_program' in st.session_state:
+            st.session_state.channel_tv_tokyo_program = False
+        # テレビ局選択の状態をリセット
+        if 'last_channels_program' in st.session_state:
+            st.session_state.last_channels_program = []
+        if 'last_genre_program' in st.session_state:
+            st.session_state.last_genre_program = "すべて"
         st.rerun()
 
 # タブで検索条件を切り替え
