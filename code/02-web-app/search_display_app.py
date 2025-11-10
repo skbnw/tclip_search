@@ -412,6 +412,9 @@ def get_program_names(_s3_client, genre_filter: str = None) -> List[str]:
                 if not genre_match:
                     continue
             
+            # テレビ局でフィルタリング（指定されている場合）
+            # 注: channel_filtersパラメータは後で追加されるため、ここではチェックしない
+            
             # 番組名の候補フィールドをチェック
             program_fields = [
                 metadata.get('program_name', ''),
