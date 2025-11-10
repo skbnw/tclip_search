@@ -288,6 +288,24 @@ def list_all_master_data(_s3_client) -> List[Dict]:
     """全マスターデータのリストを取得（インデックスを使用）"""
     return load_search_index(_s3_client)
 
+# ジャンルの固定順序リスト
+GENRE_ORDER = [
+    "すべて",
+    "ニュース／報道",
+    "情報／ワイドショー",
+    "ドキュメンタリー／教養",
+    "ドラマ",
+    "スポーツ",
+    "バラエティ",
+    "劇場／公演",
+    "映画",
+    "福祉",
+    "趣味／教育",
+    "アニメ／特撮",
+    "音楽",
+    "その他"
+]
+
 # 検索オプションの取得（初回のみ読み込み）
 @st.cache_data(ttl=3600)  # 1時間キャッシュ
 def get_search_options(_s3_client) -> Dict[str, List[str]]:
@@ -335,20 +353,32 @@ def get_search_options(_s3_client) -> Dict[str, List[str]]:
                     if genre_value and genre_value.strip() and genre_value != 'None':
                         genres.add(genre_value.strip())
         
+        # ジャンルを固定順序でソート（固定順序に含まれるものは順序通り、含まれないものは末尾に追加）
+        genres_list = list(genres)
+        ordered_genres = []
+        # 固定順序に含まれるジャンルを順番に追加
+        for genre in GENRE_ORDER[1:]:  # "すべて"を除く
+            if genre in genres_list:
+                ordered_genres.append(genre)
+        # 固定順序に含まれないジャンルを末尾に追加
+        for genre in sorted(genres_list):
+            if genre not in ordered_genres:
+                ordered_genres.append(genre)
+        
         return {
             'dates': sorted(list(dates)),
             'times': sorted(list(times)),
             'channels': sorted(list(channels)),
-            'genres': sorted(list(genres))
+            'genres': ordered_genres
         }
     except Exception as e:
         st.error(f"検索オプションの取得エラー: {str(e)}")
         return {'dates': [], 'times': [], 'channels': [], 'genres': []}
 
-# 番組名リストの取得（初回のみ読み込み）
+# 番組名リストの取得（初回のみ読み込み、ジャンルでフィルタリング可能）
 @st.cache_data(ttl=3600)  # 1時間キャッシュ
-def get_program_names(_s3_client) -> List[str]:
-    """データベースから番組名のリストを取得"""
+def get_program_names(_s3_client, genre_filter: str = None) -> List[str]:
+    """データベースから番組名のリストを取得（ジャンルでフィルタリング可能）"""
     try:
         all_masters = list_all_master_data(_s3_client)
         
@@ -356,6 +386,29 @@ def get_program_names(_s3_client) -> List[str]:
         
         for master in all_masters:
             metadata = master.get('metadata', {})
+            
+            # ジャンルでフィルタリング（指定されている場合）
+            if genre_filter and genre_filter != "すべて":
+                genre_match = False
+                genre_lower = genre_filter.strip().lower()
+                genre_fields = ['genre', 'ジャンル', 'program_genre', 'category', 'カテゴリ']
+                
+                for field in genre_fields:
+                    genre_value = metadata.get(field, '')
+                    if genre_value:
+                        genre_value_str = str(genre_value).strip().lower()
+                        # 完全一致を優先
+                        if genre_lower == genre_value_str:
+                            genre_match = True
+                            break
+                        # 部分一致（大文字小文字を区別しない）
+                        elif genre_lower in genre_value_str or genre_value_str in genre_lower:
+                            genre_match = True
+                            break
+                
+                # ジャンルが一致しない場合はスキップ
+                if not genre_match:
+                    continue
             
             # 番組名の候補フィールドをチェック
             program_fields = [
