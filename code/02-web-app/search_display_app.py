@@ -353,16 +353,18 @@ def get_search_options(_s3_client) -> Dict[str, List[str]]:
                     if genre_value and genre_value.strip() and genre_value != 'None':
                         genres.add(genre_value.strip())
         
-        # ジャンルを固定順序でソート（固定順序に含まれるものは順序通り、含まれないものは末尾に追加）
+        # ジャンルを固定順序でソート（固定順序に含まれるものは順序通り、含まれないものは「その他」の前に追加）
         genres_list = list(genres)
         ordered_genres = []
-        # 固定順序に含まれるジャンルを順番に追加
+        # 固定順序に含まれるジャンルを順番に追加（データベースに存在するかどうかに関わらず）
         for genre in GENRE_ORDER[1:]:  # "すべて"を除く
+            if genre == "その他":
+                # 「その他」の前に、固定順序に含まれないジャンルを追加
+                for other_genre in sorted(genres_list):
+                    if other_genre not in ordered_genres:
+                        ordered_genres.append(other_genre)
+            # データベースに存在する場合のみ追加
             if genre in genres_list:
-                ordered_genres.append(genre)
-        # 固定順序に含まれないジャンルを末尾に追加
-        for genre in sorted(genres_list):
-            if genre not in ordered_genres:
                 ordered_genres.append(genre)
         
         return {
@@ -865,15 +867,18 @@ with tab_program_type:
         # ジャンル（プルダウン、固定順序で表示）
         st.markdown("### 🎭 ジャンル")
         genre_options = ["すべて"]
-        # 固定順序のジャンルを追加
+        available_genres = set(search_options.get('genres', []))
+        
+        # 固定順序のジャンルを順番に追加（データベースに存在するかどうかに関わらず）
         for genre in GENRE_ORDER[1:]:  # "すべて"を除く
-            if genre in search_options.get('genres', []):
+            if genre == "その他":
+                # 「その他」の前に、固定順序に含まれないジャンルを追加
+                for other_genre in sorted(available_genres):
+                    if other_genre not in genre_options:
+                        genre_options.append(other_genre)
+            # データベースに存在する場合のみ追加
+            if genre in available_genres:
                 genre_options.append(genre)
-        # 固定順序に含まれないジャンルを末尾に追加
-        if search_options.get('genres'):
-            for genre in search_options['genres']:
-                if genre not in genre_options:
-                    genre_options.append(genre)
         
         initial_genre_index = 0
         if 'genre_program' in st.session_state and st.session_state.genre_program in genre_options:
