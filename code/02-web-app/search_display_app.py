@@ -1024,10 +1024,11 @@ elif search_button_performer:
     genre_program_search = "すべて"
 elif search_button_program_type:
     # 番組選択タブから検索（このタブの設定のみを使用）
-    period_type_search = st.session_state.get("period_type", "オール")
-    start_date_search = st.session_state.get("start_date_input_program", None)
-    end_date_search = st.session_state.get("end_date_input_program", None)
+    period_type_search = st.session_state.get("period_type", "すべて")
+    start_date_search = None
+    end_date_search = None
     genre_program_search = st.session_state.get("genre_program", "すべて")
+    channels_program_search = st.session_state.get("search_channels_program", [])
     program_names_search = st.session_state.get("program_names_multiselect", [])
     # 他のタブの値は使用しない
     channel = "すべて"
