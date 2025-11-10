@@ -1043,6 +1043,11 @@ def search_master_data_advanced(
     program_name: str = "",
     performer: str = "",
     genre: str = "",
+    program_names: List[str] = None,
+    period_type: str = "オール",
+    start_date: str = None,
+    end_date: str = None,
+    genre_program: str = "すべて",
     time_tolerance_minutes: int = 30
 ) -> List[Dict]:
     """マスターデータを詳細条件で検索（時間近似検索対応）"""
