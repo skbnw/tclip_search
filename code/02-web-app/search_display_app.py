@@ -436,7 +436,7 @@ with col_clear:
         st.rerun()
 
 # タブで検索条件を切り替え
-tab_date, tab_detail, tab_performer = st.tabs(["📅 日付", "🔍 詳細検索", "👤 出演者"])
+tab_date, tab_detail, tab_performer, tab_program_type = st.tabs(["📅 日付", "🔍 詳細検索", "👤 出演者", "📺 番組選択"])
 
 # 検索条件の変数をセッションステートで管理（タブ間で共有）
 if 'search_channel' not in st.session_state:
