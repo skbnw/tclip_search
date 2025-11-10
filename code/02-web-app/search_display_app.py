@@ -1236,7 +1236,6 @@ def search_master_data_advanced(
             # チャンネル名の先頭部分を抽出（例: "1 NHK総合1.." → "NHK"）
             channel_clean = channel.strip()
             # 数字とスペースを除去して比較
-            import re
             channel_clean = re.sub(r'^\d+\s*', '', channel_clean)  # 先頭の数字とスペースを除去
             channel_clean = re.sub(r'\.+$', '', channel_clean)  # 末尾のドットを除去
             
