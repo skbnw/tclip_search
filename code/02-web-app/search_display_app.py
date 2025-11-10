@@ -1028,9 +1028,9 @@ with tab_program_type:
                 st.session_state.search_start_date = None
                 st.session_state.search_end_date = None
             if period_type == "曜日":
-                st.session_state.search_weekday = selected_weekday
+                st.session_state.search_weekdays = selected_weekdays
             else:
-                st.session_state.search_weekday = None
+                st.session_state.search_weekdays = []
             st.session_state.search_genre_program = genre_program
             st.session_state.search_channels_program = selected_channels
             st.session_state.search_program_names = selected_program_names
@@ -1096,7 +1096,7 @@ elif search_button_program_type:
     else:
         start_date_search = None
         end_date_search = None
-    weekday_search = st.session_state.get("search_weekday", None) if period_type_search == "曜日" else None
+    weekdays_search = st.session_state.get("search_weekdays", []) if period_type_search == "曜日" else []
     genre_program_search = st.session_state.get("genre_program", "すべて")
     channels_program_search = st.session_state.get("search_channels_program", [])
     program_names_search = st.session_state.get("program_names_multiselect", [])
@@ -1623,8 +1623,8 @@ def search_master_data_advanced(
                     if master_date_int < one_month_ago_int or master_date_int > today_int:
                         match = False
                         continue
-                elif period_type == "曜日" and weekday:
-                    # 曜日でフィルタ（指定された曜日のデータのみ）
+                elif period_type == "曜日" and (weekday or weekdays):
+                    # 曜日でフィルタ（指定された曜日のデータのみ、複数選択対応）
                     # 日付から曜日を取得
                     try:
                         from datetime import datetime as dt
@@ -1636,9 +1636,17 @@ def search_master_data_advanced(
                             "月曜日": 0, "火曜日": 1, "水曜日": 2, "木曜日": 3,
                             "金曜日": 4, "土曜日": 5, "日曜日": 6
                         }
-                        target_weekday = weekday_map.get(weekday, None)
                         
-                        if target_weekday is not None and master_weekday != target_weekday:
+                        # weekdaysがリストの場合は複数選択、weekdayが文字列の場合は単一選択（後方互換性）
+                        target_weekdays = []
+                        if weekdays and len(weekdays) > 0:
+                            target_weekdays = [weekday_map.get(w, None) for w in weekdays if w in weekday_map]
+                        elif weekday:
+                            target_weekday = weekday_map.get(weekday, None)
+                            if target_weekday is not None:
+                                target_weekdays = [target_weekday]
+                        
+                        if target_weekdays and master_weekday not in target_weekdays:
                             match = False
                             continue
                     except:
@@ -2757,7 +2765,8 @@ if search_button:
                         period_type=period_type_search if period_type_search else "すべて",
                         start_date=start_date_str,
                         end_date=end_date_str,
-                        weekday=weekday_search if period_type_search == "曜日" else None,
+                        weekday=None,
+                        weekdays=weekdays_search if period_type_search == "曜日" and weekdays_search and len(weekdays_search) > 0 else None,
                         genre_program=genre_program_search if genre_program_search and genre_program_search != "すべて" else "すべて",
                         channels_program=channels_program_search if channels_program_search and len(channels_program_search) > 0 and "すべて" not in channels_program_search else None,
                         time_tolerance_minutes=30  # 30分以内の近似検索
