@@ -476,6 +476,17 @@ with col_clear:
             st.session_state.search_end_date = None
         if 'search_genre_program' in st.session_state:
             st.session_state.search_genre_program = "すべて"
+        # 番組選択タブの入力フィールドもクリア
+        if 'period_type' in st.session_state:
+            st.session_state.period_type = "オール"
+        if 'genre_program' in st.session_state:
+            st.session_state.genre_program = "すべて"
+        if 'program_names_multiselect' in st.session_state:
+            st.session_state.program_names_multiselect = []
+        if 'start_date_input_program' in st.session_state:
+            st.session_state.start_date_input_program = None
+        if 'end_date_input_program' in st.session_state:
+            st.session_state.end_date_input_program = None
         st.rerun()
 
 # タブで検索条件を切り替え
@@ -1281,16 +1292,26 @@ def search_master_data_advanced(
             ]
             
             for program_name_selected in program_names:
-                program_name_selected_lower = str(program_name_selected).strip().lower()
+                # 特殊文字を除去して比較（🈑、🅍などの絵文字を除去）
+                program_name_selected_clean = re.sub(r'[🈑🅍🈓🈔🈕🈖🈗🈘🈙🈚🈛🈜🈝🈞🈟🈠🈡🈢🈣🈤🈥🈦🈧🈨🈩🈪🈫🈬🈭🈮🈯🈰🈱🈲🈳🈴🈵🈶🈷🈸🈹🈺🈻🈼🈽🈾🈿🉀🉁🉂🉃🉄🉅🉆🉇🉈🉉🉊🉋🉌🉍🉎🉏]', '', str(program_name_selected))
+                program_name_selected_lower = program_name_selected_clean.strip().lower()
+                
                 for field_value in program_fields:
                     if field_value:
-                        field_value_str = str(field_value).strip().lower()
+                        # 特殊文字を除去して比較
+                        field_value_clean = re.sub(r'[🈑🅍🈓🈔🈕🈖🈗🈘🈙🈚🈛🈜🈝🈞🈟🈠🈡🈢🈣🈤🈥🈦🈧🈨🈩🈪🈫🈬🈭🈮🈯🈰🈱🈲🈳🈴🈵🈶🈷🈸🈹🈺🈻🈼🈽🈾🈿🉀🉁🉂🉃🉄🉅🉆🉇🉈🉉🉊🉋🉌🉍🉎🉏]', '', str(field_value))
+                        field_value_str = field_value_clean.strip().lower()
+                        
                         # 完全一致を優先
                         if program_name_selected_lower == field_value_str:
                             program_name_match = True
                             break
-                        # 部分一致
+                        # 部分一致（特殊文字を除去した後の文字列で比較）
                         elif program_name_selected_lower in field_value_str or field_value_str in program_name_selected_lower:
+                            program_name_match = True
+                            break
+                        # 元の文字列でもチェック（フォールバック）
+                        elif str(program_name_selected).strip().lower() in str(field_value).strip().lower() or str(field_value).strip().lower() in str(program_name_selected).strip().lower():
                             program_name_match = True
                             break
                     if program_name_match:
