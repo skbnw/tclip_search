@@ -17,6 +17,10 @@ Date: 2025/11/02
   （例: NHKG_TKY_20251015_0035-0125_AkxAQAELAAM_integrated_q1.00.json）
 
 変更履歴:
+v1.5: ベクトル計算機能を追加
+      - チャンク生成時にベクトル（埋め込み）を計算して保存
+      - sentence-transformersライブラリを使用
+      - 日本語対応モデル（paraphrase-multilingual-MiniLM-L12-v2）を使用
 v1.4: audioフォルダのアップロード機能を追加
       - processed配下のaudioフォルダを探索してS3にアップロード
       - すべてのバージョンのJSONファイルを処理（q1.00以外も含む）
