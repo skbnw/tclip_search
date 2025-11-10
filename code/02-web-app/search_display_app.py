@@ -756,8 +756,8 @@ with tab_program_type:
         initial_period_index = 0
         if 'period_type' in st.session_state and st.session_state.period_type in period_options:
             initial_period_index = period_options.index(st.session_state.period_type)
-        elif st.session_state.search_period_type in period_options:
-            initial_period_index = period_options.index(st.session_state.search_period_type)
+        elif st.session_state.get("search_period_type", "オール") in period_options:
+            initial_period_index = period_options.index(st.session_state.get("search_period_type", "オール"))
         
         period_type = st.selectbox(
             "期間タイプ",
@@ -798,8 +798,8 @@ with tab_program_type:
         initial_genre_index = 0
         if 'genre_program' in st.session_state and st.session_state.genre_program in genre_options:
             initial_genre_index = genre_options.index(st.session_state.genre_program)
-        elif st.session_state.search_genre_program in genre_options:
-            initial_genre_index = genre_options.index(st.session_state.search_genre_program)
+        elif st.session_state.get("search_genre_program", "すべて") in genre_options:
+            initial_genre_index = genre_options.index(st.session_state.get("search_genre_program", "すべて"))
         
         genre_program = st.selectbox(
             "ジャンル",
