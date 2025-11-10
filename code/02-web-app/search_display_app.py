@@ -833,9 +833,18 @@ with tab_detail:
                 "キーワード（全文・テキスト検索）",
                 value=initial_keyword,
                 placeholder="キーワードを入力してください（任意）",
-                help="全文テキストとチャンクテキストから検索します（現在はテキストマッチング検索）",
+                help="全文テキストとチャンクテキストから検索します（テキストマッチング検索 + ベクトル検索）",
                 key="keyword_detail"
             )
+            # ベクトル検索のオプション（sentence-transformersが利用可能な場合のみ表示）
+            if SENTENCE_TRANSFORMERS_AVAILABLE:
+                use_vector_search = st.checkbox(
+                    "ベクトル検索を使用",
+                    value=st.session_state.get("use_vector_search", False),
+                    help="ベクトル類似度検索を使用します（意味的な類似性を検出）",
+                    key="use_vector_search_detail"
+                )
+                st.session_state.use_vector_search = use_vector_search
         
         # 検索ボタン
         search_button_detail = st.form_submit_button("🔍 検索", use_container_width=True)
