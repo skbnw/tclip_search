@@ -345,6 +345,39 @@ def get_search_options(_s3_client) -> Dict[str, List[str]]:
         st.error(f"検索オプションの取得エラー: {str(e)}")
         return {'dates': [], 'times': [], 'channels': [], 'genres': []}
 
+# 番組名リストの取得（初回のみ読み込み）
+@st.cache_data(ttl=3600)  # 1時間キャッシュ
+def get_program_names(_s3_client) -> List[str]:
+    """データベースから番組名のリストを取得"""
+    try:
+        all_masters = list_all_master_data(_s3_client)
+        
+        program_names = set()
+        
+        for master in all_masters:
+            metadata = master.get('metadata', {})
+            
+            # 番組名の候補フィールドをチェック
+            program_fields = [
+                metadata.get('program_name', ''),
+                metadata.get('program_title', ''),
+                metadata.get('master_title', ''),
+                metadata.get('title', ''),
+                metadata.get('番組名', ''),
+                metadata.get('番組タイトル', '')
+            ]
+            
+            for field_value in program_fields:
+                if field_value:
+                    program_name = str(field_value).strip()
+                    if program_name and program_name != 'None':
+                        program_names.add(program_name)
+        
+        return sorted(list(program_names))
+    except Exception as e:
+        st.error(f"番組名リストの取得エラー: {str(e)}")
+        return []
+
 # 30分単位の時間リスト生成
 def generate_time_options():
     """30分単位の時間オプションを生成"""
@@ -433,6 +466,16 @@ with col_clear:
             st.session_state.keyword_detail = ""
         if 'keyword_performer' in st.session_state:
             st.session_state.keyword_performer = ""
+        if 'search_program_names' in st.session_state:
+            st.session_state.search_program_names = []
+        if 'search_period_type' in st.session_state:
+            st.session_state.search_period_type = "オール"
+        if 'search_start_date' in st.session_state:
+            st.session_state.search_start_date = None
+        if 'search_end_date' in st.session_state:
+            st.session_state.search_end_date = None
+        if 'search_genre_program' in st.session_state:
+            st.session_state.search_genre_program = "すべて"
         st.rerun()
 
 # タブで検索条件を切り替え
@@ -701,8 +744,101 @@ with tab_performer:
             # 検索時にページをリセット
             st.session_state.current_page = 1
 
+with tab_program_type:
+    # 番組選択タブ: 期間設定、ジャンル、番組名（複数選択）
+    with st.form("search_form_program_type"):
+        search_options = get_search_options(_s3_client=s3_client)
+        program_names_list = get_program_names(_s3_client=s3_client)
+        
+        # 期間設定
+        st.markdown("### 📅 期間設定")
+        period_options = ["オール", "隔週", "週間", "月間", "カスタム"]
+        initial_period_index = 0
+        if 'period_type' in st.session_state and st.session_state.period_type in period_options:
+            initial_period_index = period_options.index(st.session_state.period_type)
+        elif st.session_state.search_period_type in period_options:
+            initial_period_index = period_options.index(st.session_state.search_period_type)
+        
+        period_type = st.selectbox(
+            "期間タイプ",
+            options=period_options,
+            help="検索期間のタイプを選択してください",
+            key="period_type",
+            index=initial_period_index
+        )
+        
+        # カスタム期間の場合のみ日付選択を表示
+        start_date_program = None
+        end_date_program = None
+        if period_type == "カスタム":
+            col_start, col_end = st.columns(2)
+            with col_start:
+                initial_start_date = st.session_state.search_start_date if 'search_start_date' in st.session_state else None
+                start_date_program = st.date_input(
+                    "開始日",
+                    value=initial_start_date,
+                    help="検索開始日を選択してください",
+                    key="start_date_input_program"
+                )
+            with col_end:
+                initial_end_date = st.session_state.search_end_date if 'search_end_date' in st.session_state else None
+                end_date_program = st.date_input(
+                    "終了日",
+                    value=initial_end_date,
+                    help="検索終了日を選択してください",
+                    key="end_date_input_program"
+                )
+        
+        # ジャンル（プルダウン）
+        st.markdown("### 🎭 ジャンル")
+        genre_options = ["すべて"]
+        if search_options.get('genres'):
+            genre_options.extend(search_options['genres'])
+        
+        initial_genre_index = 0
+        if 'genre_program' in st.session_state and st.session_state.genre_program in genre_options:
+            initial_genre_index = genre_options.index(st.session_state.genre_program)
+        elif st.session_state.search_genre_program in genre_options:
+            initial_genre_index = genre_options.index(st.session_state.search_genre_program)
+        
+        genre_program = st.selectbox(
+            "ジャンル",
+            options=genre_options,
+            help="ジャンルを選択してください（任意）",
+            key="genre_program",
+            index=initial_genre_index
+        )
+        
+        # 番組名（複数選択、multiselectで直感的に選択可能）
+        st.markdown("### 📺 番組名（複数選択可）")
+        if program_names_list:
+            initial_program_names = st.session_state.search_program_names if 'search_program_names' in st.session_state else []
+            selected_program_names = st.multiselect(
+                "番組名を選択してください（複数選択可）",
+                options=program_names_list,
+                default=initial_program_names,
+                help="複数の番組を選択できます。Ctrlキー（Mac: Cmdキー）を押しながらクリックで複数選択",
+                key="program_names_multiselect"
+            )
+        else:
+            st.warning("⚠️ 番組名データを読み込み中...")
+            selected_program_names = []
+        
+        # 検索ボタン
+        search_button_program_type = st.form_submit_button("🔍 検索", use_container_width=True)
+        
+        # フォーム送信時にセッションステートを更新
+        if search_button_program_type:
+            st.session_state.search_period_type = period_type
+            st.session_state.search_start_date = start_date_program
+            st.session_state.search_end_date = end_date_program
+            st.session_state.search_genre_program = genre_program
+            st.session_state.search_program_names = selected_program_names
+            # 検索時にページをリセット
+            st.session_state.current_page = 1
+
 # 検索ボタンの状態を統合
-search_button = search_button_date or search_button_detail or search_button_performer
+search_button = search_button_date or search_button_detail or search_button_performer or search_button_program_type
 
 # 検索条件を取得（検索ボタンを押したタブの設定のみを使用）
 if search_button_date:
@@ -736,6 +872,26 @@ elif search_button_performer:
     program_name_search = ""
     genre_search = ""
     performer_search = ""
+    program_names_search = []
+    period_type_search = "オール"
+    start_date_search = None
+    end_date_search = None
+    genre_program_search = "すべて"
+elif search_button_program_type:
+    # 番組選択タブから検索（このタブの設定のみを使用）
+    period_type_search = st.session_state.get("period_type", "オール")
+    start_date_search = st.session_state.get("start_date_input_program", None)
+    end_date_search = st.session_state.get("end_date_input_program", None)
+    genre_program_search = st.session_state.get("genre_program", "すべて")
+    program_names_search = st.session_state.get("program_names_multiselect", [])
+    # 他のタブの値は使用しない
+    channel = "すべて"
+    selected_date = None
+    selected_time = None
+    program_name_search = ""
+    genre_search = ""
+    performer_search = ""
+    keyword = ""
 else:
     # 検索ボタンが押されていない場合、セッションステートから取得（初期状態）
     channel = st.session_state.get("channel_date", st.session_state.get("channel_detail", st.session_state.get("channel_performer", st.session_state.get("search_channel", "すべて"))))
@@ -750,6 +906,11 @@ else:
     genre_search = st.session_state.get("genre_detail", st.session_state.get("search_genre", ""))
     performer_search = st.session_state.get("search_performer", "")
     keyword = st.session_state.get("keyword_detail", st.session_state.get("keyword_performer", st.session_state.get("search_keyword", "")))
+    program_names_search = st.session_state.get("search_program_names", [])
+    period_type_search = st.session_state.get("search_period_type", "オール")
+    start_date_search = st.session_state.get("search_start_date", None)
+    end_date_search = st.session_state.get("search_end_date", None)
+    genre_program_search = st.session_state.get("search_genre_program", "すべて")
 
 # 日付と時間の文字列変換
 date_str = selected_date.strftime("%Y%m%d") if selected_date else None
@@ -1078,6 +1239,142 @@ def search_master_data_advanced(
                         program_match = True
                         break
             if not program_match:
+                match = False
+                continue
+        
+        # 番組名リストでフィルタ（複数選択対応）
+        if program_names and len(program_names) > 0:
+            program_name_match = False
+            # 番組名の候補フィールドをチェック
+            program_fields = [
+                metadata.get('program_name', ''),
+                metadata.get('program_title', ''),
+                metadata.get('master_title', ''),
+                metadata.get('title', ''),
+                metadata.get('番組名', ''),
+                metadata.get('番組タイトル', '')
+            ]
+            
+            for program_name_selected in program_names:
+                program_name_selected_lower = str(program_name_selected).strip().lower()
+                for field_value in program_fields:
+                    if field_value:
+                        field_value_str = str(field_value).strip().lower()
+                        # 完全一致を優先
+                        if program_name_selected_lower == field_value_str:
+                            program_name_match = True
+                            break
+                        # 部分一致
+                        elif program_name_selected_lower in field_value_str or field_value_str in program_name_selected_lower:
+                            program_name_match = True
+                            break
+                    if program_name_match:
+                        break
+                if program_name_match:
+                    break
+            
+            if not program_name_match:
+                match = False
+                continue
+        
+        # 期間タイプでフィルタ
+        if period_type and period_type != "オール":
+            # 日付情報を複数のフィールドから取得
+            master_date = str(metadata.get('date', '')) or str(metadata.get('放送日', '')) or str(metadata.get('放送日時', ''))
+            
+            # start_timeやend_timeから日付を抽出（YYYYMMDDHHMM形式の場合）
+            if not master_date or master_date == 'None' or master_date.strip() == '':
+                start_time = str(metadata.get('start_time', ''))
+                if start_time and len(start_time) >= 8:
+                    if len(start_time) >= 8 and start_time[:8].isdigit():
+                        master_date = start_time[:8]
+            
+            # 日付形式を変換（YYYYMMDD形式）
+            master_date_clean = None
+            if master_date and master_date != 'None' and master_date.strip():
+                # YYYY-MM-DD形式の場合
+                if '-' in master_date and len(master_date) >= 10:
+                    try:
+                        parts = master_date.split('-')
+                        if len(parts) >= 3:
+                            master_date_clean = f"{parts[0]}{parts[1].zfill(2)}{parts[2].zfill(2)}"
+                    except:
+                        pass
+                # YYYYMMDD形式またはYYYYMMDDHHMM形式の場合
+                elif len(master_date) >= 8 and master_date[:8].isdigit():
+                    master_date_clean = master_date[:8]
+                elif len(master_date) == 8 and master_date.isdigit():
+                    master_date_clean = master_date
+            
+            if master_date_clean:
+                master_date_int = int(master_date_clean)
+                today = datetime.now()
+                today_str = today.strftime("%Y%m%d")
+                today_int = int(today_str)
+                
+                if period_type == "隔週":
+                    # 2週間前から今日まで
+                    two_weeks_ago = today - timedelta(days=14)
+                    two_weeks_ago_str = two_weeks_ago.strftime("%Y%m%d")
+                    two_weeks_ago_int = int(two_weeks_ago_str)
+                    if master_date_int < two_weeks_ago_int or master_date_int > today_int:
+                        match = False
+                        continue
+                elif period_type == "週間":
+                    # 1週間前から今日まで
+                    one_week_ago = today - timedelta(days=7)
+                    one_week_ago_str = one_week_ago.strftime("%Y%m%d")
+                    one_week_ago_int = int(one_week_ago_str)
+                    if master_date_int < one_week_ago_int or master_date_int > today_int:
+                        match = False
+                        continue
+                elif period_type == "月間":
+                    # 1ヶ月前から今日まで
+                    one_month_ago = today - timedelta(days=30)
+                    one_month_ago_str = one_month_ago.strftime("%Y%m%d")
+                    one_month_ago_int = int(one_month_ago_str)
+                    if master_date_int < one_month_ago_int or master_date_int > today_int:
+                        match = False
+                        continue
+                elif period_type == "カスタム" and (start_date or end_date):
+                    # カスタム期間
+                    if start_date:
+                        start_date_int = int(start_date.replace('-', ''))
+                        if master_date_int < start_date_int:
+                            match = False
+                            continue
+                    if end_date:
+                        end_date_int = int(end_date.replace('-', ''))
+                        if master_date_int > end_date_int:
+                            match = False
+                            continue
+            else:
+                # 日付情報がない場合は除外（期間フィルタが指定されている場合）
+                if period_type != "オール":
+                    match = False
+                    continue
+        
+        # ジャンル（番組選択タブ用）でフィルタ
+        if genre_program and genre_program != "すべて":
+            genre_lower = genre_program.strip().lower()
+            # ジャンル情報を複数のフィールドから取得
+            genre_fields = ['genre', 'ジャンル', 'program_genre', 'category', 'カテゴリ']
+            genre_match = False
+
+            for field in genre_fields:
+                genre_value = metadata.get(field, '')
+                if genre_value:
+                    genre_value_str = str(genre_value).strip().lower()
+                    # 完全一致を優先
+                    if genre_lower == genre_value_str:
+                        genre_match = True
+                        break
+                    # 部分一致（大文字小文字を区別しない）
+                    elif genre_lower in genre_value_str or genre_value_str in genre_lower:
+                        genre_match = True
+                        break
+
+            if not genre_match:
                 match = False
                 continue
         
@@ -2088,6 +2385,17 @@ if search_button:
                 search_conditions.append(f"主演者: {performer_search}")
             if keyword:
                 search_conditions.append(f"キーワード: {keyword}")
+            if program_names_search and len(program_names_search) > 0:
+                search_conditions.append(f"番組名: {', '.join(program_names_search)}")
+            if period_type_search and period_type_search != "オール":
+                search_conditions.append(f"期間: {period_type_search}")
+                if period_type_search == "カスタム":
+                    if start_date_search:
+                        search_conditions.append(f"開始日: {start_date_search.strftime('%Y年%m月%d日')}")
+                    if end_date_search:
+                        search_conditions.append(f"終了日: {end_date_search.strftime('%Y年%m月%d日')}")
+            if genre_program_search and genre_program_search != "すべて":
+                search_conditions.append(f"ジャンル: {genre_program_search}")
             
             # 検索条件のチェック（番組名検索、ジャンル検索も追加）
             # 検索条件が空の場合のみ警告を表示
@@ -2098,12 +2406,19 @@ if search_button:
                 keyword or 
                 program_name_search or 
                 (genre_search and genre_search != "すべて") or
-                performer_search
+                performer_search or
+                (program_names_search and len(program_names_search) > 0) or
+                (period_type_search and period_type_search != "オール") or
+                (genre_program_search and genre_program_search != "すべて")
             )
             if not has_search_condition:
                 st.warning("⚠️ 検索条件を1つ以上入力してください")
             else:
                 with st.spinner(f"検索中: {', '.join(search_conditions) if search_conditions else '条件なし'}..."):
+                    # 期間指定を文字列に変換
+                    start_date_str = start_date_search.strftime("%Y%m%d") if start_date_search else None
+                    end_date_str = end_date_search.strftime("%Y%m%d") if end_date_search else None
+                    
                     search_results = search_master_data_with_chunks(
                         _s3_client=s3_client,
                         master_list=all_masters,
@@ -2114,6 +2429,12 @@ if search_button:
                         keyword=keyword,
                         program_name=program_name_search if program_name_search else "",
                         performer=performer_search if performer_search else "",
+                        genre=genre_search if genre_search and genre_search != "すべて" else "",
+                        program_names=program_names_search if program_names_search and len(program_names_search) > 0 else None,
+                        period_type=period_type_search if period_type_search else "オール",
+                        start_date=start_date_str,
+                        end_date=end_date_str,
+                        genre_program=genre_program_search if genre_program_search and genre_program_search != "すべて" else "すべて",
                         time_tolerance_minutes=30  # 30分以内の近似検索
                     )
             
