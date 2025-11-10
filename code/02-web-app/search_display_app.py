@@ -1024,10 +1024,16 @@ def search_master_data_advanced(
                 match = False
                 continue
         
-        # 放送局でフィルタ
-        if channel and channel != "すべて":
+        # 放送局でフィルタ（「すべて」の場合はフィルタしない）
+        if channel and channel.strip() and channel != "すべて":
             # チャンネル情報を複数のフィールドから取得
             master_channel = str(metadata.get('channel', '')) or str(metadata.get('channel_code', '')) or str(metadata.get('放送局', ''))
+            
+            if not master_channel or master_channel.strip() == '':
+                # 放送局情報がない場合はスキップ
+                match = False
+                continue
+            
             # 選択されたチャンネル値と実際のデータを比較（部分一致でも可）
             # チャンネル名の先頭部分を抽出（例: "1 NHK総合1.." → "NHK"）
             channel_clean = channel.strip()
@@ -1043,7 +1049,7 @@ def search_master_data_advanced(
             # 部分一致でチェック（大文字小文字を区別しない）
             if channel_clean.lower() not in master_channel_clean.lower() and master_channel_clean.lower() not in channel_clean.lower():
                 # 元の値でもチェック（フォールバック）
-                if channel not in master_channel and master_channel not in channel:
+                if channel.lower() not in master_channel.lower() and master_channel.lower() not in channel.lower():
                     match = False
                     continue
         
