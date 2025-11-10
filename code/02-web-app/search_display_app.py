@@ -861,6 +861,11 @@ if search_button_date:
     genre_search = ""
     performer_search = ""
     keyword = ""
+    program_names_search = []
+    period_type_search = "オール"
+    start_date_search = None
+    end_date_search = None
+    genre_program_search = "すべて"
 elif search_button_detail:
     # 詳細検索タブから検索（このタブの設定のみを使用）
     channel = st.session_state.get("channel_detail", "すべて")
@@ -872,6 +877,11 @@ elif search_button_detail:
     selected_time = st.session_state.get("time_input_detail", None)
     # 他のタブの値は使用しない
     performer_search = ""
+    program_names_search = []
+    period_type_search = "オール"
+    start_date_search = None
+    end_date_search = None
+    genre_program_search = "すべて"
 elif search_button_performer:
     # 出演者タブから検索（このタブの設定のみを使用）
     channel = st.session_state.get("channel_performer", "すべて")
