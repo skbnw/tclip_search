@@ -871,6 +871,7 @@ def search_master_data_advanced(
     keyword: str = "",
     program_name: str = "",
     performer: str = "",
+    genre: str = "",
     time_tolerance_minutes: int = 30
 ) -> List[Dict]:
     """マスターデータを詳細条件で検索（時間近似検索対応）"""
