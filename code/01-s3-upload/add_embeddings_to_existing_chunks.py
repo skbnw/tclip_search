@@ -71,9 +71,14 @@ def get_chunk_data_from_s3(doc_id: str) -> Optional[List[Dict]]:
             if line:
                 chunks.append(json.loads(line))
         return chunks
-    except S3_CLIENT.exceptions.NoSuchKey:
-        print(f"[WARNING] チャンクデータが見つかりません: {doc_id}")
-        return None
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code', '')
+        if error_code == 'NoSuchKey':
+            print(f"[WARNING] チャンクデータが見つかりません: {doc_id}")
+            return None
+        else:
+            print(f"[ERROR] S3エラー: {doc_id} - {str(e)}")
+            return None
     except Exception as e:
         print(f"[ERROR] チャンクデータの取得エラー: {doc_id} - {str(e)}")
         return None
