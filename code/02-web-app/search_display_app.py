@@ -1170,6 +1170,7 @@ else:
     period_type_search = st.session_state.get("search_period_type", "すべて")
     start_date_search = st.session_state.get("search_start_date", None)
     end_date_search = st.session_state.get("search_end_date", None)
+    weekdays_search = st.session_state.get("search_weekdays", [])
     genre_program_search = st.session_state.get("search_genre_program", "すべて")
     channels_program_search = st.session_state.get("search_channels_program", [])
 
