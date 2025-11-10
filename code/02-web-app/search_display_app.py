@@ -496,6 +496,16 @@ if 'search_performer' not in st.session_state:
     st.session_state.search_performer = ""
 if 'search_keyword' not in st.session_state:
     st.session_state.search_keyword = ""
+if 'search_program_names' not in st.session_state:
+    st.session_state.search_program_names = []
+if 'search_period_type' not in st.session_state:
+    st.session_state.search_period_type = "オール"
+if 'search_start_date' not in st.session_state:
+    st.session_state.search_start_date = None
+if 'search_end_date' not in st.session_state:
+    st.session_state.search_end_date = None
+if 'search_genre_program' not in st.session_state:
+    st.session_state.search_genre_program = "すべて"
 
 search_button_date = False
 search_button_detail = False
