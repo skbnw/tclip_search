@@ -14,9 +14,18 @@ import json
 import sys
 import os
 import re
-from typing import Dict, List, Optional
+import numpy as np
+from typing import Dict, List, Optional, Tuple
 from io import BytesIO
 from datetime import date, time, datetime, timedelta
+
+# ベクトル検索用のライブラリ（オプション）
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+    st.warning("⚠️ sentence-transformersがインストールされていません。ベクトル検索にはこのライブラリが必要です。")
 
 # Windows環境での文字エンコーディング対応
 if sys.platform == 'win32':
@@ -876,9 +885,18 @@ with tab_performer:
                 "キーワード（全文・テキスト検索）",
                 value=initial_keyword,
                 placeholder="キーワードを入力してください（任意）",
-                help="全文テキストとチャンクテキストから検索します（現在はテキストマッチング検索）",
+                help="全文テキストとチャンクテキストから検索します（テキストマッチング検索 + ベクトル検索）",
                 key="keyword_performer"
             )
+            # ベクトル検索のオプション（sentence-transformersが利用可能な場合のみ表示）
+            if SENTENCE_TRANSFORMERS_AVAILABLE:
+                use_vector_search = st.checkbox(
+                    "ベクトル検索を使用",
+                    value=st.session_state.get("use_vector_search", False),
+                    help="ベクトル類似度検索を使用します（意味的な類似性を検出）",
+                    key="use_vector_search_performer"
+                )
+                st.session_state.use_vector_search = use_vector_search
         
         # 検索ボタン
         search_button_performer = st.form_submit_button("🔍 検索", use_container_width=True)
@@ -1969,8 +1987,24 @@ def search_master_data_with_chunks(
             if keyword_lower in combined_text:
                 results.append(master)
         
-        # チャンク検索はスキップ（インデックスに全文が含まれているため不要）
-        # 全文テキスト検索で十分高速に検索可能
+        # ベクトル検索を試行（チャンクデータにベクトルが含まれている場合、またはベクトル検索が有効な場合）
+        # テキスト検索で結果が見つからない場合、またはベクトル検索が有効な場合
+        use_vector_search = st.session_state.get("use_vector_search", False)
+        if (len(results) == 0 or use_vector_search) and SENTENCE_TRANSFORMERS_AVAILABLE:
+            # チャンクデータを取得してベクトル検索を実行
+            vector_results = search_with_vector_similarity(
+                _s3_client, filtered_masters, keyword, max_results=max_results
+            )
+            if vector_results:
+                # ベクトル検索の結果を追加（重複を避ける）
+                existing_doc_ids = {r.get('doc_id', '') for r in results}
+                for vector_result in vector_results:
+                    if vector_result.get('doc_id', '') not in existing_doc_ids:
+                        results.append(vector_result)
+                        if len(results) >= max_results:
+                            break
+                # ベクトル検索の結果を類似度でソート
+                results.sort(key=lambda x: x.get('vector_similarity', 0), reverse=True)
         
         progress_bar.empty()
         status_text.empty()
@@ -1982,6 +2016,151 @@ def search_master_data_with_chunks(
         return results
     
     return filtered_masters
+
+# ベクトル検索用の関数
+@st.cache_resource
+def load_embedding_model():
+    """埋め込みモデルを読み込む（キャッシュ）"""
+    if not SENTENCE_TRANSFORMERS_AVAILABLE:
+        return None
+    try:
+        # 日本語対応のモデルを使用（multilingual-MiniLM-L12-v2など）
+        model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+        return model
+    except Exception as e:
+        st.error(f"埋め込みモデルの読み込みエラー: {str(e)}")
+        return None
+
+def compute_cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
+    """コサイン類似度を計算"""
+    try:
+        dot_product = np.dot(vec1, vec2)
+        norm1 = np.linalg.norm(vec1)
+        norm2 = np.linalg.norm(vec2)
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        return dot_product / (norm1 * norm2)
+    except Exception:
+        return 0.0
+
+def get_chunk_embedding(chunk: Dict, model) -> Optional[np.ndarray]:
+    """チャンクから埋め込みベクトルを取得（既存のベクトルがある場合はそれを使用、ない場合は生成）"""
+    # 既存のベクトルがある場合はそれを使用
+    if 'embedding' in chunk:
+        embedding = chunk.get('embedding')
+        if isinstance(embedding, list):
+            return np.array(embedding)
+        elif isinstance(embedding, np.ndarray):
+            return embedding
+    elif 'vector' in chunk:
+        vector = chunk.get('vector')
+        if isinstance(vector, list):
+            return np.array(vector)
+        elif isinstance(vector, np.ndarray):
+            return vector
+    
+    # ベクトルがない場合は、テキストから生成
+    if model is None:
+        return None
+    
+    chunk_text = chunk.get('text', '')
+    if not chunk_text:
+        return None
+    
+    try:
+        embedding = model.encode(chunk_text, convert_to_numpy=True)
+        return embedding
+    except Exception as e:
+        st.error(f"埋め込みベクトルの生成エラー: {str(e)}")
+        return None
+
+def search_with_vector_similarity(
+    _s3_client,
+    master_list: List[Dict],
+    query: str,
+    max_results: int = 500,
+    similarity_threshold: float = 0.3
+) -> List[Dict]:
+    """ベクトル類似度検索を実行"""
+    if not query or not query.strip():
+        return []
+    
+    # 埋め込みモデルを読み込む
+    model = load_embedding_model()
+    if model is None:
+        return []  # モデルが利用できない場合は空のリストを返す
+    
+    try:
+        # クエリをベクトル化
+        query_embedding = model.encode(query, convert_to_numpy=True)
+    except Exception as e:
+        st.error(f"クエリのベクトル化エラー: {str(e)}")
+        return []
+    
+    # 各マスターデータのチャンクを検索
+    results_with_scores = []
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    total = len(master_list)
+    
+    for idx, master in enumerate(master_list):
+        if len(results_with_scores) >= max_results:
+            break
+        
+        # 進捗表示
+        if idx % 10 == 0 or idx == total - 1:
+            progress = (idx + 1) / total
+            progress_bar.progress(progress)
+            status_text.text(f"ベクトル検索中: {idx + 1}/{total} 件（{len(results_with_scores)} 件ヒット）")
+        
+        doc_id = master.get('doc_id', '')
+        if not doc_id:
+            continue
+        
+        # チャンクデータを取得
+        try:
+            chunks = get_chunk_data(_s3_client, doc_id)
+        except Exception:
+            continue
+        
+        if not chunks:
+            continue
+        
+        # 各チャンクのベクトルとクエリの類似度を計算
+        best_similarity = 0.0
+        best_chunk = None
+        
+        for chunk in chunks:
+            chunk_embedding = get_chunk_embedding(chunk, model)
+            if chunk_embedding is None:
+                continue
+            
+            # コサイン類似度を計算
+            similarity = compute_cosine_similarity(query_embedding, chunk_embedding)
+            
+            if similarity > best_similarity:
+                best_similarity = similarity
+                best_chunk = chunk
+        
+        # 類似度が閾値以上の場合、結果に追加
+        if best_similarity >= similarity_threshold:
+            # マスターデータに類似度スコアを追加
+            master_with_score = master.copy()
+            master_with_score['vector_similarity'] = best_similarity
+            master_with_score['best_chunk'] = best_chunk
+            results_with_scores.append((best_similarity, master_with_score))
+    
+    progress_bar.empty()
+    status_text.empty()
+    
+    # 類似度の高い順にソート
+    results_with_scores.sort(key=lambda x: x[0], reverse=True)
+    
+    # マスターデータのみを返す
+    results = [master for _, master in results_with_scores[:max_results]]
+    
+    return results
 
 def display_master_data(master_data, chunks, images, doc_id, target_chunk_filename=None):
     """マスターデータ、チャンク、画像を表示"""
