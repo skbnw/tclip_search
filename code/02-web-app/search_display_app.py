@@ -386,6 +386,57 @@ def get_search_options(_s3_client) -> Dict[str, List[str]]:
         st.error(f"検索オプションの取得エラー: {str(e)}")
         return {'dates': [], 'times': [], 'channels': [], 'genres': []}
 
+# 出演者名リストの取得（初回のみ読み込み）
+@st.cache_data(ttl=3600)  # 1時間キャッシュ
+def get_performer_names(_s3_client) -> List[str]:
+    """データベースから出演者名のリストを取得"""
+    try:
+        all_masters = list_all_master_data(_s3_client)
+        
+        performer_names = set()
+        
+        for master in all_masters:
+            metadata = master.get('metadata', {})
+            
+            # talentsフィールドから出演者名を抽出
+            talents = metadata.get('talents', [])
+            if talents:
+                for talent in talents:
+                    if isinstance(talent, dict):
+                        talent_name = talent.get('name', '') or talent.get('talent_name', '')
+                    else:
+                        talent_name = str(talent)
+                    if talent_name and talent_name.strip():
+                        performer_names.add(talent_name.strip())
+            
+            # その他の出演者名フィールドもチェック
+            talent_fields = [
+                'talent_names', 'performers', 'performer_names',
+                'cast', 'cast_names', '出演者', '出演者名'
+            ]
+            for field in talent_fields:
+                field_value = metadata.get(field, '')
+                if field_value:
+                    if isinstance(field_value, str):
+                        # カンマ区切りの文字列の場合
+                        names = [n.strip() for n in field_value.split(',') if n.strip()]
+                        for name in names:
+                            performer_names.add(name)
+                    elif isinstance(field_value, list):
+                        # リストの場合
+                        for name in field_value:
+                            if isinstance(name, dict):
+                                name_str = name.get('name', '') or name.get('talent_name', '')
+                            else:
+                                name_str = str(name)
+                            if name_str and name_str.strip():
+                                performer_names.add(name_str.strip())
+        
+        return sorted(list(performer_names))
+    except Exception as e:
+        st.error(f"出演者名リストの取得エラー: {str(e)}")
+        return []
+
 # 番組名リストの取得（初回のみ読み込み、ジャンルとテレビ局でフィルタリング可能）
 @st.cache_data(ttl=3600)  # 1時間キャッシュ
 def get_program_names(_s3_client, genre_filter: str = None, channel_filters: List[str] = None) -> List[str]:
@@ -568,6 +619,8 @@ with col_clear:
             st.session_state.keyword_detail = ""
         if 'keyword_performer' in st.session_state:
             st.session_state.keyword_performer = ""
+        if 'performer_performer' in st.session_state:
+            st.session_state.performer_performer = ""
         if 'search_program_names' in st.session_state:
             st.session_state.search_program_names = []
         if 'search_period_type' in st.session_state:
@@ -861,7 +914,7 @@ with tab_detail:
             st.session_state.current_page = 1
 
 with tab_performer:
-    # 出演者タブ: 放送局、キーワード
+    # 出演者タブ: 放送局、出演者名（サジェスト付き）、キーワード
     with st.form("search_form_performer"):
         search_options = get_search_options(_s3_client=s3_client)
         
@@ -885,6 +938,40 @@ with tab_performer:
                 key="channel_performer",
                 index=initial_channel_index
             )
+        
+        # 出演者名（サジェスト付き）
+        col_performer = st.columns([1])[0]
+        with col_performer:
+            # 出演者名リストを取得
+            performer_names_list = get_performer_names(_s3_client)
+            
+            # セッションステートから初期値を取得
+            initial_performer = st.session_state.get("performer_performer", st.session_state.get("search_performer", ""))
+            
+            # 出演者名の選択（検索可能なselectbox）
+            if performer_names_list:
+                # 初期値がリストに含まれているかチェック
+                initial_index = 0
+                if initial_performer and initial_performer in performer_names_list:
+                    initial_index = performer_names_list.index(initial_performer)
+                
+                performer_performer = st.selectbox(
+                    "出演者名（検索可能）",
+                    options=[""] + performer_names_list,  # 空文字列を最初に追加（選択なし）
+                    help="出演者名を選択または検索してください。入力すると絞り込まれます。",
+                    key="performer_performer",
+                    index=initial_index + 1 if initial_performer else 0,
+                    format_func=lambda x: "出演者名を選択してください" if x == "" else x
+                )
+            else:
+                # 出演者名リストが取得できない場合はテキスト入力
+                performer_performer = st.text_input(
+                    "出演者名",
+                    value=initial_performer,
+                    placeholder="出演者名を入力してください（任意）",
+                    help="出演者名を入力してください",
+                    key="performer_performer"
+                )
         
         # キーワード
         col_keyword = st.columns([1])[0]
@@ -914,6 +1001,7 @@ with tab_performer:
         if search_button_performer:
             st.session_state.search_channel = channel_performer
             st.session_state.search_keyword = keyword_performer
+            st.session_state.search_performer = performer_performer if performer_performer else ""
             # 検索時にページをリセット
             st.session_state.current_page = 1
 
@@ -1173,12 +1261,12 @@ elif search_button_performer:
     # 出演者タブから検索（このタブの設定のみを使用）
     channel = st.session_state.get("channel_performer", "すべて")
     keyword = st.session_state.get("keyword_performer", "")
+    performer_search = st.session_state.get("performer_performer", "")
     # 他のタブの値は使用しない
     selected_date = None
     selected_time = None
     program_name_search = ""
     genre_search = ""
-    performer_search = ""
     program_names_search = []
     period_type_search = "すべて"
     start_date_search = None
