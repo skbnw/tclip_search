@@ -1129,6 +1129,30 @@ def search_master_data_advanced(
                 match = False
                 continue
         
+        # ジャンルでフィルタ
+        if genre and genre.strip() and genre != "すべて":
+            genre_lower = genre.strip().lower()
+            # ジャンル情報を複数のフィールドから取得
+            genre_fields = ['genre', 'ジャンル', 'program_genre', 'category', 'カテゴリ']
+            genre_match = False
+            
+            for field in genre_fields:
+                genre_value = metadata.get(field, '')
+                if genre_value:
+                    genre_value_str = str(genre_value).strip().lower()
+                    # 完全一致を優先
+                    if genre_lower == genre_value_str:
+                        genre_match = True
+                        break
+                    # 部分一致（大文字小文字を区別しない）
+                    elif genre_lower in genre_value_str or genre_value_str in genre_lower:
+                        genre_match = True
+                        break
+            
+            if not genre_match:
+                match = False
+                continue
+        
         # キーワードでフィルタ（全文とチャンクテキスト）
         if keyword and keyword.strip():
             keyword_lower = keyword.strip().lower()
