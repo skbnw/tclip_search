@@ -1870,6 +1870,7 @@ def search_master_data_with_chunks(
     start_date: str = None,
     end_date: str = None,
     weekday: str = None,
+    weekdays: List[str] = None,
     genre_program: str = "すべて",
     channels_program: List[str] = None,
     time_tolerance_minutes: int = 30,
@@ -1879,7 +1880,7 @@ def search_master_data_with_chunks(
     # まず基本条件でフィルタ（メタデータのみで高速）
     # キーワードは後で全文検索で処理するため、ここでは空文字列を渡す
     filtered_masters = search_master_data_advanced(
-        master_list, program_id, date_str, time_str, channel, "", program_name, performer, genre, program_names, period_type, start_date, end_date, weekday, genre_program, channels_program, time_tolerance_minutes
+        master_list, program_id, date_str, time_str, channel, "", program_name, performer, genre, program_names, period_type, start_date, end_date, weekday, weekdays, genre_program, channels_program, time_tolerance_minutes
     )
     
     # デバッグ: 基本フィルタ後の件数を確認（st.debugは存在しないため削除）
