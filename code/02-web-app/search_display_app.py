@@ -1339,6 +1339,44 @@ def search_master_data_advanced(
                 match = False
                 continue
         
+        # テレビ局選択でフィルタ（番組選択タブ用）
+        if channels_program and len(channels_program) > 0 and "すべて" not in channels_program:
+            channel_match = False
+            # チャンネル情報を複数のフィールドから取得
+            master_channel = str(metadata.get('channel', '')) or str(metadata.get('channel_code', '')) or str(metadata.get('放送局', ''))
+            
+            if master_channel and master_channel.strip():
+                master_channel_lower = master_channel.strip().lower()
+                # 選択されたチャンネルと比較
+                for selected_channel in channels_program:
+                    selected_channel_lower = selected_channel.strip().lower()
+                    # チャンネル名のマッピング
+                    channel_mapping = {
+                        'nhk総合': ['nhk', 'nhk総合', 'nhkg-tky', 'nhk総合1..', '1 nhk総合1..'],
+                        'nhk eテレ': ['nhk eテレ', 'nhk-etv', 'eテレ', 'nhk eテレ'],
+                        '日本テレビ': ['日本テレビ', 'ntv', '日テレ', '日本テレビ'],
+                        'tbs': ['tbs'],
+                        'フジテレビ': ['フジテレビ', 'fuji', 'fuji-tv', 'フジ'],
+                        'テレビ朝日': ['テレビ朝日', 'tv-asahi', '朝日', 'テレビ朝日'],
+                        'テレビ東京': ['テレビ東京', 'tv-tokyo', 'テレ東', 'テレビ東京']
+                    }
+                    
+                    # マッピングから候補を取得
+                    candidates = channel_mapping.get(selected_channel_lower, [selected_channel_lower])
+                    
+                    # 部分一致でチェック
+                    for candidate in candidates:
+                        if candidate.lower() in master_channel_lower or master_channel_lower in candidate.lower():
+                            channel_match = True
+                            break
+                    
+                    if channel_match:
+                        break
+                
+                if not channel_match:
+                    match = False
+                    continue
+        
         # 放送局でフィルタ（「すべて」の場合はフィルタしない）
         if channel and channel.strip() and channel != "すべて":
             # チャンネル情報を複数のフィールドから取得
@@ -1440,7 +1478,7 @@ def search_master_data_advanced(
                 continue
         
         # 期間タイプでフィルタ
-        if period_type and period_type != "オール":
+        if period_type and period_type != "すべて":
             # 日付情報を複数のフィールドから取得
             master_date = str(metadata.get('date', '')) or str(metadata.get('放送日', '')) or str(metadata.get('放送日時', ''))
             
@@ -1474,45 +1512,40 @@ def search_master_data_advanced(
                 today_str = today.strftime("%Y%m%d")
                 today_int = int(today_str)
                 
-                if period_type == "隔週":
-                    # 2週間前から今日まで
-                    two_weeks_ago = today - timedelta(days=14)
-                    two_weeks_ago_str = two_weeks_ago.strftime("%Y%m%d")
-                    two_weeks_ago_int = int(two_weeks_ago_str)
-                    if master_date_int < two_weeks_ago_int or master_date_int > today_int:
+                if period_type == "今週":
+                    # 今週（月曜日から日曜日まで）
+                    # 今日が何曜日かを取得（0=月曜日、6=日曜日）
+                    weekday = today.weekday()
+                    # 今週の月曜日を計算
+                    monday = today - timedelta(days=weekday)
+                    monday_str = monday.strftime("%Y%m%d")
+                    monday_int = int(monday_str)
+                    # 今週の日曜日を計算
+                    sunday = monday + timedelta(days=6)
+                    sunday_str = sunday.strftime("%Y%m%d")
+                    sunday_int = int(sunday_str)
+                    if master_date_int < monday_int or master_date_int > sunday_int:
                         match = False
                         continue
-                elif period_type == "週間":
-                    # 1週間前から今日まで
-                    one_week_ago = today - timedelta(days=7)
-                    one_week_ago_str = one_week_ago.strftime("%Y%m%d")
-                    one_week_ago_int = int(one_week_ago_str)
-                    if master_date_int < one_week_ago_int or master_date_int > today_int:
+                elif period_type == "先週":
+                    # 先週（先週の月曜日から日曜日まで）
+                    weekday = today.weekday()
+                    # 今週の月曜日を計算
+                    this_monday = today - timedelta(days=weekday)
+                    # 先週の月曜日を計算
+                    last_monday = this_monday - timedelta(days=7)
+                    last_monday_str = last_monday.strftime("%Y%m%d")
+                    last_monday_int = int(last_monday_str)
+                    # 先週の日曜日を計算
+                    last_sunday = last_monday + timedelta(days=6)
+                    last_sunday_str = last_sunday.strftime("%Y%m%d")
+                    last_sunday_int = int(last_sunday_str)
+                    if master_date_int < last_monday_int or master_date_int > last_sunday_int:
                         match = False
                         continue
-                elif period_type == "月間":
-                    # 1ヶ月前から今日まで
-                    one_month_ago = today - timedelta(days=30)
-                    one_month_ago_str = one_month_ago.strftime("%Y%m%d")
-                    one_month_ago_int = int(one_month_ago_str)
-                    if master_date_int < one_month_ago_int or master_date_int > today_int:
-                        match = False
-                        continue
-                elif period_type == "カスタム" and (start_date or end_date):
-                    # カスタム期間
-                    if start_date:
-                        start_date_int = int(start_date.replace('-', ''))
-                        if master_date_int < start_date_int:
-                            match = False
-                            continue
-                    if end_date:
-                        end_date_int = int(end_date.replace('-', ''))
-                        if master_date_int > end_date_int:
-                            match = False
-                            continue
             else:
                 # 日付情報がない場合は除外（期間フィルタが指定されている場合）
-                if period_type != "オール":
+                if period_type != "すべて":
                     match = False
                     continue
         
