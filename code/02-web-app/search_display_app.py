@@ -913,8 +913,25 @@ with tab_program_type:
     if "すべて" in selected_channels:
         selected_channels = ["すべて"]
     
-    # ジャンルでフィルタリングした番組名リストを取得
-    program_names_list = get_program_names(_s3_client=s3_client, genre_filter=genre_program)
+    # テレビ局が変更されたときに番組名リストをリセットするコールバック
+    def on_channel_change():
+        if 'program_names_multiselect' in st.session_state:
+            st.session_state.program_names_multiselect = []
+        st.session_state.last_channels_program = selected_channels
+    
+    # テレビ局が変更されたかチェック
+    last_channels = st.session_state.get("last_channels_program", [])
+    if last_channels != selected_channels:
+        if 'program_names_multiselect' in st.session_state:
+            st.session_state.program_names_multiselect = []
+        st.session_state.last_channels_program = selected_channels
+    
+    # ジャンルとテレビ局でフィルタリングした番組名リストを取得
+    program_names_list = get_program_names(
+        _s3_client=s3_client, 
+        genre_filter=genre_program,
+        channel_filters=selected_channels if selected_channels and "すべて" not in selected_channels else None
+    )
     
     # 番組名（複数選択、multiselectで直感的に選択可能）
     st.markdown("### 📺 番組名（複数選択可）")
@@ -959,19 +976,21 @@ with tab_program_type:
             index=initial_period_index
         )
         
-        # 曜日選択（期間タイプが「曜日」の場合）
-        selected_weekday = None
+        # 曜日選択（期間タイプが「曜日」の場合、複数選択可能）
+        selected_weekdays = []
         if period_type == "曜日":
             weekday_options = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
-            initial_weekday_index = 0
-            if 'selected_weekday' in st.session_state and st.session_state.selected_weekday in weekday_options:
-                initial_weekday_index = weekday_options.index(st.session_state.selected_weekday)
-            selected_weekday = st.selectbox(
-                "曜日",
+            initial_weekdays = st.session_state.get("search_weekdays", [])
+            if not initial_weekdays:
+                initial_weekdays = []
+            # 初期選択状態を取得（存在するもののみ）
+            valid_initial_weekdays = [w for w in initial_weekdays if w in weekday_options]
+            selected_weekdays = st.multiselect(
+                "曜日（複数選択可）",
                 options=weekday_options,
-                help="検索する曜日を選択してください",
-                key="selected_weekday",
-                index=initial_weekday_index
+                default=valid_initial_weekdays,
+                help="検索する曜日を選択してください（複数選択可）",
+                key="selected_weekdays"
             )
         
         # カスタム期間の場合のみ日付選択を表示
@@ -1236,6 +1255,7 @@ def search_master_data_advanced(
     start_date: str = None,
     end_date: str = None,
     weekday: str = None,
+    weekdays: List[str] = None,
     genre_program: str = "すべて",
     channels_program: List[str] = None,
     time_tolerance_minutes: int = 30
@@ -2685,8 +2705,8 @@ if search_button:
                 search_conditions.append(f"番組名: {', '.join(program_names_search)}")
             if period_type_search and period_type_search != "すべて":
                 period_display = period_type_search
-                if period_type_search == "曜日" and weekday_search:
-                    period_display = f"{period_type_search} ({weekday_search})"
+                if period_type_search == "曜日" and weekdays_search and len(weekdays_search) > 0:
+                    period_display = f"{period_type_search} ({', '.join(weekdays_search)})"
                 elif period_type_search == "カスタム":
                     period_display = period_type_search
                     if start_date_search:
