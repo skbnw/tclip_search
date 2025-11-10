@@ -531,9 +531,11 @@ with col_clear:
             st.session_state.search_end_date = None
         if 'search_genre_program' in st.session_state:
             st.session_state.search_genre_program = "すべて"
+        if 'search_channels_program' in st.session_state:
+            st.session_state.search_channels_program = []
         # 番組選択タブの入力フィールドもクリア
         if 'period_type' in st.session_state:
-            st.session_state.period_type = "オール"
+            st.session_state.period_type = "すべて"
         if 'genre_program' in st.session_state:
             st.session_state.genre_program = "すべて"
         if 'program_names_multiselect' in st.session_state:
@@ -572,6 +574,8 @@ if 'search_end_date' not in st.session_state:
     st.session_state.search_end_date = None
 if 'search_genre_program' not in st.session_state:
     st.session_state.search_genre_program = "すべて"
+if 'search_channels_program' not in st.session_state:
+    st.session_state.search_channels_program = []
 
 search_button_date = False
 search_button_detail = False
@@ -861,6 +865,54 @@ with tab_program_type:
         on_change=on_genre_change
     )
     
+    # テレビ局選択（チェックボックス）
+    st.markdown("### 📺 テレビ局選択")
+    channel_options = ["すべて", "NHK総合", "NHK Eテレ", "日本テレビ", "TBS", "フジテレビ", "テレビ朝日", "テレビ東京"]
+    
+    # 初期選択状態を取得
+    initial_channels = st.session_state.get("search_channels_program", [])
+    if not initial_channels:
+        initial_channels = ["すべて"]
+    
+    selected_channels = []
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        all_checked = st.checkbox("すべて", value="すべて" in initial_channels, key="channel_all_program")
+        if all_checked:
+            selected_channels.append("すべて")
+        nhk_checked = st.checkbox("NHK総合", value="NHK総合" in initial_channels, key="channel_nhk_program")
+        if nhk_checked:
+            selected_channels.append("NHK総合")
+    
+    with col2:
+        nhk_etv_checked = st.checkbox("NHK Eテレ", value="NHK Eテレ" in initial_channels, key="channel_nhk_etv_program")
+        if nhk_etv_checked:
+            selected_channels.append("NHK Eテレ")
+        ntv_checked = st.checkbox("日本テレビ", value="日本テレビ" in initial_channels, key="channel_ntv_program")
+        if ntv_checked:
+            selected_channels.append("日本テレビ")
+    
+    with col3:
+        tbs_checked = st.checkbox("TBS", value="TBS" in initial_channels, key="channel_tbs_program")
+        if tbs_checked:
+            selected_channels.append("TBS")
+        fuji_checked = st.checkbox("フジテレビ", value="フジテレビ" in initial_channels, key="channel_fuji_program")
+        if fuji_checked:
+            selected_channels.append("フジテレビ")
+    
+    with col4:
+        tv_asahi_checked = st.checkbox("テレビ朝日", value="テレビ朝日" in initial_channels, key="channel_tv_asahi_program")
+        if tv_asahi_checked:
+            selected_channels.append("テレビ朝日")
+        tv_tokyo_checked = st.checkbox("テレビ東京", value="テレビ東京" in initial_channels, key="channel_tv_tokyo_program")
+        if tv_tokyo_checked:
+            selected_channels.append("テレビ東京")
+    
+    # 「すべて」が選択されている場合、他の選択をクリア
+    if "すべて" in selected_channels:
+        selected_channels = ["すべて"]
+    
     # ジャンルでフィルタリングした番組名リストを取得
     program_names_list = get_program_names(_s3_client=s3_client, genre_filter=genre_program)
     
@@ -892,12 +944,12 @@ with tab_program_type:
     with st.form("search_form_program_type"):
         # 期間設定
         st.markdown("### 📅 期間設定")
-        period_options = ["オール", "隔週", "週間", "月間", "カスタム"]
+        period_options = ["すべて", "今週", "先週"]
         initial_period_index = 0
         if 'period_type' in st.session_state and st.session_state.period_type in period_options:
             initial_period_index = period_options.index(st.session_state.period_type)
-        elif st.session_state.get("search_period_type", "オール") in period_options:
-            initial_period_index = period_options.index(st.session_state.get("search_period_type", "オール"))
+        elif st.session_state.get("search_period_type", "すべて") in period_options:
+            initial_period_index = period_options.index(st.session_state.get("search_period_type", "すべて"))
         
         period_type = st.selectbox(
             "期間タイプ",
@@ -906,28 +958,6 @@ with tab_program_type:
             key="period_type",
             index=initial_period_index
         )
-        
-        # カスタム期間の場合のみ日付選択を表示
-        start_date_program = None
-        end_date_program = None
-        if period_type == "カスタム":
-            col_start, col_end = st.columns(2)
-            with col_start:
-                initial_start_date = st.session_state.search_start_date if 'search_start_date' in st.session_state else None
-                start_date_program = st.date_input(
-                    "開始日",
-                    value=initial_start_date,
-                    help="検索開始日を選択してください",
-                    key="start_date_input_program"
-                )
-            with col_end:
-                initial_end_date = st.session_state.search_end_date if 'search_end_date' in st.session_state else None
-                end_date_program = st.date_input(
-                    "終了日",
-                    value=initial_end_date,
-                    help="検索終了日を選択してください",
-                    key="end_date_input_program"
-                )
         
         # 検索ボタン
         search_button_program_type = st.form_submit_button("🔍 検索", use_container_width=True)
@@ -1022,10 +1052,11 @@ else:
     performer_search = st.session_state.get("search_performer", "")
     keyword = st.session_state.get("keyword_detail", st.session_state.get("keyword_performer", st.session_state.get("search_keyword", "")))
     program_names_search = st.session_state.get("search_program_names", [])
-    period_type_search = st.session_state.get("search_period_type", "オール")
+    period_type_search = st.session_state.get("search_period_type", "すべて")
     start_date_search = st.session_state.get("search_start_date", None)
     end_date_search = st.session_state.get("search_end_date", None)
     genre_program_search = st.session_state.get("search_genre_program", "すべて")
+    channels_program_search = st.session_state.get("search_channels_program", [])
 
 # 日付と時間の文字列変換
 date_str = selected_date.strftime("%Y%m%d") if selected_date else None
@@ -1149,10 +1180,11 @@ def search_master_data_advanced(
     performer: str = "",
     genre: str = "",
     program_names: List[str] = None,
-    period_type: str = "オール",
+    period_type: str = "すべて",
     start_date: str = None,
     end_date: str = None,
     genre_program: str = "すべて",
+    channels_program: List[str] = None,
     time_tolerance_minutes: int = 30
 ) -> List[Dict]:
     """マスターデータを詳細条件で検索（時間近似検索対応）"""
@@ -1633,10 +1665,11 @@ def search_master_data_with_chunks(
     performer: str = "",
     genre: str = "",
     program_names: List[str] = None,
-    period_type: str = "オール",
+    period_type: str = "すべて",
     start_date: str = None,
     end_date: str = None,
     genre_program: str = "すべて",
+    channels_program: List[str] = None,
     time_tolerance_minutes: int = 30,
     max_results: int = 500  # 検索結果の上限（パフォーマンス向上）
 ) -> List[Dict]:
@@ -1644,7 +1677,7 @@ def search_master_data_with_chunks(
     # まず基本条件でフィルタ（メタデータのみで高速）
     # キーワードは後で全文検索で処理するため、ここでは空文字列を渡す
     filtered_masters = search_master_data_advanced(
-        master_list, program_id, date_str, time_str, channel, "", program_name, performer, genre, program_names, period_type, start_date, end_date, genre_program, time_tolerance_minutes
+        master_list, program_id, date_str, time_str, channel, "", program_name, performer, genre, program_names, period_type, start_date, end_date, genre_program, channels_program, time_tolerance_minutes
     )
     
     # デバッグ: 基本フィルタ後の件数を確認（st.debugは存在しないため削除）
@@ -2542,8 +2575,9 @@ if search_button:
                 (genre_search and genre_search != "すべて") or
                 performer_search or
                 (program_names_search and len(program_names_search) > 0) or
-                (period_type_search and period_type_search != "オール") or
-                (genre_program_search and genre_program_search != "すべて")
+                (period_type_search and period_type_search != "すべて") or
+                (genre_program_search and genre_program_search != "すべて") or
+                (channels_program_search and len(channels_program_search) > 0 and "すべて" not in channels_program_search)
             )
             if not has_search_condition:
                 st.warning("⚠️ 検索条件を1つ以上入力してください")
