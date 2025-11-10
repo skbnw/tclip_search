@@ -25,7 +25,7 @@ try:
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
-    st.warning("⚠️ sentence-transformersがインストールされていません。ベクトル検索にはこのライブラリが必要です。")
+    # 警告は後で表示（st.warningはここでは使用しない）
 
 # Windows環境での文字エンコーディング対応
 if sys.platform == 'win32':
