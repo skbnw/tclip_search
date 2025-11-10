@@ -38,6 +38,7 @@ v1.1: program-integration配下全体を探索、q1.00ファイルのバッチ�
 依存パッケージ:
 - boto3: S3操作
 - jsonlines: JSON Lines形式の処理
+- sentence-transformers: ベクトル計算（オプション、インストールされていない場合はベクトル計算をスキップ）
 """
 
 import json
@@ -51,6 +52,15 @@ from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 from datetime import datetime
 from botocore.exceptions import ClientError
+
+# ベクトル計算用のライブラリ（オプション）
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+    print("[WARNING] sentence-transformersがインストールされていません。ベクトル計算をスキップします。")
+    print("  インストール: pip install sentence-transformers")
 
 # Windows環境での文字エンコーディング対応
 if sys.platform == 'win32':
