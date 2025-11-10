@@ -822,7 +822,6 @@ with tab_program_type:
     # 番組選択タブ: 期間設定、ジャンル、番組名（複数選択）
     with st.form("search_form_program_type"):
         search_options = get_search_options(_s3_client=s3_client)
-        program_names_list = get_program_names(_s3_client=s3_client)
         
         # 期間設定
         st.markdown("### 📅 期間設定")
@@ -863,11 +862,18 @@ with tab_program_type:
                     key="end_date_input_program"
                 )
         
-        # ジャンル（プルダウン）
+        # ジャンル（プルダウン、固定順序で表示）
         st.markdown("### 🎭 ジャンル")
         genre_options = ["すべて"]
+        # 固定順序のジャンルを追加
+        for genre in GENRE_ORDER[1:]:  # "すべて"を除く
+            if genre in search_options.get('genres', []):
+                genre_options.append(genre)
+        # 固定順序に含まれないジャンルを末尾に追加
         if search_options.get('genres'):
-            genre_options.extend(search_options['genres'])
+            for genre in search_options['genres']:
+                if genre not in genre_options:
+                    genre_options.append(genre)
         
         initial_genre_index = 0
         if 'genre_program' in st.session_state and st.session_state.genre_program in genre_options:
@@ -878,22 +884,36 @@ with tab_program_type:
         genre_program = st.selectbox(
             "ジャンル",
             options=genre_options,
-            help="ジャンルを選択してください（任意）",
+            help="ジャンルを選択してください（選択すると番組名が絞り込まれます）",
             key="genre_program",
             index=initial_genre_index
         )
         
+        # ジャンルでフィルタリングした番組名リストを取得
+        program_names_list = get_program_names(_s3_client=s3_client, genre_filter=genre_program)
+        
         # 番組名（複数選択、multiselectで直感的に選択可能）
         st.markdown("### 📺 番組名（複数選択可）")
         if program_names_list:
-            initial_program_names = st.session_state.search_program_names if 'search_program_names' in st.session_state else []
+            # ジャンルが変更された場合、選択された番組名をリセット
+            if 'last_genre_program' in st.session_state and st.session_state.last_genre_program != genre_program:
+                if 'program_names_multiselect' in st.session_state:
+                    st.session_state.program_names_multiselect = []
+            
+            initial_program_names = st.session_state.program_names_multiselect if 'program_names_multiselect' in st.session_state else []
+            # 選択された番組名が現在のリストに存在するか確認
+            valid_program_names = [name for name in initial_program_names if name in program_names_list]
+            
             selected_program_names = st.multiselect(
                 "番組名を選択してください（複数選択可）",
                 options=program_names_list,
-                default=initial_program_names,
-                help="複数の番組を選択できます。Ctrlキー（Mac: Cmdキー）を押しながらクリックで複数選択",
+                default=valid_program_names,
+                help=f"複数の番組を選択できます。Ctrlキー（Mac: Cmdキー）を押しながらクリックで複数選択（{len(program_names_list)}件）",
                 key="program_names_multiselect"
             )
+            
+            # 現在のジャンルを記録
+            st.session_state.last_genre_program = genre_program
         else:
             st.warning("⚠️ 番組名データを読み込み中...")
             selected_program_names = []
