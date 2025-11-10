@@ -1125,10 +1125,12 @@ elif search_button_performer:
     genre_search = ""
     performer_search = ""
     program_names_search = []
-    period_type_search = "オール"
+    period_type_search = "すべて"
     start_date_search = None
     end_date_search = None
+    weekdays_search = []
     genre_program_search = "すべて"
+    channels_program_search = []
 elif search_button_program_type:
     # 番組選択タブから検索（このタブの設定のみを使用）
     period_type_search = st.session_state.get("period_type", "すべて")
