@@ -944,7 +944,7 @@ with tab_program_type:
     with st.form("search_form_program_type"):
         # 期間設定
         st.markdown("### 📅 期間設定")
-        period_options = ["すべて", "今週", "先週"]
+        period_options = ["すべて", "今週", "先週", "1カ月内", "曜日", "カスタム"]
         initial_period_index = 0
         if 'period_type' in st.session_state and st.session_state.period_type in period_options:
             initial_period_index = period_options.index(st.session_state.period_type)
@@ -958,6 +958,43 @@ with tab_program_type:
             key="period_type",
             index=initial_period_index
         )
+        
+        # 曜日選択（期間タイプが「曜日」の場合）
+        selected_weekday = None
+        if period_type == "曜日":
+            weekday_options = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
+            initial_weekday_index = 0
+            if 'selected_weekday' in st.session_state and st.session_state.selected_weekday in weekday_options:
+                initial_weekday_index = weekday_options.index(st.session_state.selected_weekday)
+            selected_weekday = st.selectbox(
+                "曜日",
+                options=weekday_options,
+                help="検索する曜日を選択してください",
+                key="selected_weekday",
+                index=initial_weekday_index
+            )
+        
+        # カスタム期間の場合のみ日付選択を表示
+        start_date_program = None
+        end_date_program = None
+        if period_type == "カスタム":
+            col_start, col_end = st.columns(2)
+            with col_start:
+                initial_start_date = st.session_state.search_start_date if 'search_start_date' in st.session_state else None
+                start_date_program = st.date_input(
+                    "開始日",
+                    value=initial_start_date,
+                    help="検索開始日を選択してください",
+                    key="start_date_input_program"
+                )
+            with col_end:
+                initial_end_date = st.session_state.search_end_date if 'search_end_date' in st.session_state else None
+                end_date_program = st.date_input(
+                    "終了日",
+                    value=initial_end_date,
+                    help="検索終了日を選択してください",
+                    key="end_date_input_program"
+                )
         
         # 検索ボタン
         search_button_program_type = st.form_submit_button("🔍 検索", use_container_width=True)
@@ -1184,6 +1221,7 @@ def search_master_data_advanced(
     period_type: str = "すべて",
     start_date: str = None,
     end_date: str = None,
+    weekday: str = None,
     genre_program: str = "すべて",
     channels_program: List[str] = None,
     time_tolerance_minutes: int = 30
@@ -1702,6 +1740,7 @@ def search_master_data_with_chunks(
     period_type: str = "すべて",
     start_date: str = None,
     end_date: str = None,
+    weekday: str = None,
     genre_program: str = "すべて",
     channels_program: List[str] = None,
     time_tolerance_minutes: int = 30,
@@ -1711,7 +1750,7 @@ def search_master_data_with_chunks(
     # まず基本条件でフィルタ（メタデータのみで高速）
     # キーワードは後で全文検索で処理するため、ここでは空文字列を渡す
     filtered_masters = search_master_data_advanced(
-        master_list, program_id, date_str, time_str, channel, "", program_name, performer, genre, program_names, period_type, start_date, end_date, genre_program, channels_program, time_tolerance_minutes
+        master_list, program_id, date_str, time_str, channel, "", program_name, performer, genre, program_names, period_type, start_date, end_date, weekday, genre_program, channels_program, time_tolerance_minutes
     )
     
     # デバッグ: 基本フィルタ後の件数を確認（st.debugは存在しないため削除）
