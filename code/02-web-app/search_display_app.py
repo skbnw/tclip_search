@@ -883,7 +883,7 @@ def search_master_data_advanced(
         # 各条件でフィルタリング
         match = True
         
-        # 日付でフィルタ
+        # 日付でフィルタ（完全一致のみ）
         if date_str:
             # 日付情報を複数のフィールドから取得
             master_date = str(metadata.get('date', '')) or str(metadata.get('放送日', '')) or str(metadata.get('放送日時', ''))
@@ -898,17 +898,23 @@ def search_master_data_advanced(
             
             # 日付形式を変換して比較（YYYYMMDD形式）
             # date_strはYYYYMMDD形式（例: 20251022）
-            # master_dateもYYYYMMDD形式またはYYYYMMDDHHMM形式を想定
+            # master_dateもYYYYMMDD形式またはYYYYMMDDHHMM形式、またはYYYY-MM-DD形式を想定
             master_date_clean = None
             if master_date and master_date != 'None' and master_date.strip():
-                # YYYYMMDD形式に統一
-                if len(master_date) >= 8 and master_date[:8].isdigit():
+                # YYYY-MM-DD形式の場合
+                if '-' in master_date and len(master_date) >= 10:
+                    # YYYY-MM-DD形式をYYYYMMDD形式に変換
+                    try:
+                        parts = master_date.split('-')
+                        if len(parts) >= 3:
+                            master_date_clean = f"{parts[0]}{parts[1].zfill(2)}{parts[2].zfill(2)}"
+                    except:
+                        pass
+                # YYYYMMDD形式またはYYYYMMDDHHMM形式の場合
+                elif len(master_date) >= 8 and master_date[:8].isdigit():
                     master_date_clean = master_date[:8]
                 elif len(master_date) == 8 and master_date.isdigit():
                     master_date_clean = master_date
-                else:
-                    # 日付形式が不正な場合はスキップ
-                    master_date_clean = None
             
             # 完全一致で比較（部分一致ではなく）
             if master_date_clean:
@@ -2024,6 +2030,11 @@ def format_date_display_detail(date_str):
 
 # 検索実行
 if search_button:
+        # 検索実行時に前回の検索結果をクリア
+        st.session_state.search_results = []
+        st.session_state.selected_doc_id = None
+        st.session_state.current_page = 1
+        
         # 全データから検索（キャッシュを活用）
         with st.spinner("データを読み込み中...（初回のみ時間がかかります）"):
             all_masters = list_all_master_data(_s3_client=s3_client)
