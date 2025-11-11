@@ -1066,10 +1066,102 @@ with tab_performer:
             st.session_state.current_page = 1
 
 with tab_program_type:
-    # 番組選択タブ: テレビ局、ジャンル、番組名、期間設定
+    # 番組選択タブ: 期間設定、ジャンル、テレビ局、番組名の順
     search_options = get_search_options(_s3_client=s3_client)
     
-    # テレビ局選択（チェックボックス）- 最初に表示
+    # 期間設定（最初に表示）
+    st.markdown("### 📅 期間設定")
+    period_options = ["すべて", "今週", "先週", "1カ月内", "曜日", "カスタム"]
+    initial_period_index = 0
+    if 'period_type' in st.session_state and st.session_state.period_type in period_options:
+        initial_period_index = period_options.index(st.session_state.period_type)
+    elif st.session_state.get("search_period_type", "すべて") in period_options:
+        initial_period_index = period_options.index(st.session_state.get("search_period_type", "すべて"))
+    
+    period_type = st.selectbox(
+        "期間タイプ",
+        options=period_options,
+        help="検索期間のタイプを選択してください",
+        key="period_type",
+        index=initial_period_index
+    )
+    
+    # 曜日選択（期間タイプが「曜日」の場合、複数選択可能）
+    selected_weekdays = []
+    if period_type == "曜日":
+        weekday_options = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
+        initial_weekdays = st.session_state.get("search_weekdays", [])
+        if not initial_weekdays:
+            initial_weekdays = []
+        # 初期選択状態を取得（存在するもののみ）
+        valid_initial_weekdays = [w for w in initial_weekdays if w in weekday_options]
+        selected_weekdays = st.multiselect(
+            "曜日（複数選択可）",
+            options=weekday_options,
+            default=valid_initial_weekdays,
+            help="検索する曜日を選択してください（複数選択可）",
+            key="selected_weekdays"
+        )
+    
+    # カスタム期間の場合のみ日付選択を表示
+    start_date_program = None
+    end_date_program = None
+    if period_type == "カスタム":
+        col_start, col_end = st.columns(2)
+        with col_start:
+            initial_start_date = st.session_state.search_start_date if 'search_start_date' in st.session_state else None
+            start_date_program = st.date_input(
+                "開始日",
+                value=initial_start_date,
+                help="検索開始日を選択してください",
+                key="start_date_input_program"
+            )
+        with col_end:
+            initial_end_date = st.session_state.search_end_date if 'search_end_date' in st.session_state else None
+            end_date_program = st.date_input(
+                "終了日",
+                value=initial_end_date,
+                help="検索終了日を選択してください",
+                key="end_date_input_program"
+            )
+    
+    # ジャンル（プルダウン、固定順序で表示）
+    genre_options = ["すべて"]
+    available_genres = set(search_options.get('genres', []))
+    
+    # 固定順序のジャンルを順番に追加（データベースに存在するかどうかに関わらず）
+    for genre in GENRE_ORDER[1:]:  # "すべて"を除く
+        if genre == "その他":
+            # 「その他」の前に、固定順序に含まれないジャンルを追加
+            for other_genre in sorted(available_genres):
+                if other_genre not in genre_options:
+                    genre_options.append(other_genre)
+        # データベースに存在する場合のみ追加
+        if genre in available_genres:
+            genre_options.append(genre)
+    
+    initial_genre_index = 0
+    if 'genre_program' in st.session_state and st.session_state.genre_program in genre_options:
+        initial_genre_index = genre_options.index(st.session_state.genre_program)
+    elif st.session_state.get("search_genre_program", "すべて") in genre_options:
+        initial_genre_index = genre_options.index(st.session_state.get("search_genre_program", "すべて"))
+    
+    # ジャンルが変更されたときに番組名リストをリセットするコールバック
+    def on_genre_change():
+        if 'program_names_multiselect' in st.session_state:
+            st.session_state.program_names_multiselect = []
+        st.session_state.last_genre_program = st.session_state.genre_program
+    
+    genre_program = st.selectbox(
+        "ジャンル",
+        options=genre_options,
+        help="ジャンルを選択してください（選択すると番組名が絞り込まれます）",
+        key="genre_program",
+        index=initial_genre_index,
+        on_change=on_genre_change
+    )
+    
+    # テレビ局選択（チェックボックス）
     st.markdown("### 📺 テレビ局選択")
     channel_options = ["すべて", "NHK総合", "NHK Eテレ", "日本テレビ", "TBS", "フジテレビ", "テレビ朝日", "テレビ東京"]
     
@@ -1130,43 +1222,6 @@ with tab_program_type:
             st.session_state.program_names_multiselect = []
         st.session_state.last_channels_program = selected_channels
     
-    # ジャンル（プルダウン、固定順序で表示）- テレビ局の後に表示
-    st.markdown("### 🎭 ジャンル")
-    genre_options = ["すべて"]
-    available_genres = set(search_options.get('genres', []))
-    
-    # 固定順序のジャンルを順番に追加（データベースに存在するかどうかに関わらず）
-    for genre in GENRE_ORDER[1:]:  # "すべて"を除く
-        if genre == "その他":
-            # 「その他」の前に、固定順序に含まれないジャンルを追加
-            for other_genre in sorted(available_genres):
-                if other_genre not in genre_options:
-                    genre_options.append(other_genre)
-        # データベースに存在する場合のみ追加
-        if genre in available_genres:
-            genre_options.append(genre)
-    
-    initial_genre_index = 0
-    if 'genre_program' in st.session_state and st.session_state.genre_program in genre_options:
-        initial_genre_index = genre_options.index(st.session_state.genre_program)
-    elif st.session_state.get("search_genre_program", "すべて") in genre_options:
-        initial_genre_index = genre_options.index(st.session_state.get("search_genre_program", "すべて"))
-    
-    # ジャンルが変更されたときに番組名リストをリセットするコールバック
-    def on_genre_change():
-        if 'program_names_multiselect' in st.session_state:
-            st.session_state.program_names_multiselect = []
-        st.session_state.last_genre_program = st.session_state.genre_program
-    
-    genre_program = st.selectbox(
-        "ジャンル",
-        options=genre_options,
-        help="ジャンルを選択してください（選択すると番組名が絞り込まれます）",
-        key="genre_program",
-        index=initial_genre_index,
-        on_change=on_genre_change
-    )
-    
     # ジャンルとテレビ局でフィルタリングした番組名リストを取得
     program_names_list = get_program_names(
         _s3_client=s3_client, 
@@ -1198,64 +1253,8 @@ with tab_program_type:
         st.warning("⚠️ 番組名データを読み込み中...")
         selected_program_names = []
     
-    # フォーム内で期間設定と検索ボタンを表示
+    # フォーム内で検索ボタンを表示
     with st.form("search_form_program_type"):
-        # 期間設定
-        st.markdown("### 📅 期間設定")
-        period_options = ["すべて", "今週", "先週", "1カ月内", "曜日", "カスタム"]
-        initial_period_index = 0
-        if 'period_type' in st.session_state and st.session_state.period_type in period_options:
-            initial_period_index = period_options.index(st.session_state.period_type)
-        elif st.session_state.get("search_period_type", "すべて") in period_options:
-            initial_period_index = period_options.index(st.session_state.get("search_period_type", "すべて"))
-        
-        period_type = st.selectbox(
-            "期間タイプ",
-            options=period_options,
-            help="検索期間のタイプを選択してください",
-            key="period_type",
-            index=initial_period_index
-        )
-        
-        # 曜日選択（期間タイプが「曜日」の場合、複数選択可能）
-        selected_weekdays = []
-        if period_type == "曜日":
-            weekday_options = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
-            initial_weekdays = st.session_state.get("search_weekdays", [])
-            if not initial_weekdays:
-                initial_weekdays = []
-            # 初期選択状態を取得（存在するもののみ）
-            valid_initial_weekdays = [w for w in initial_weekdays if w in weekday_options]
-            selected_weekdays = st.multiselect(
-                "曜日（複数選択可）",
-                options=weekday_options,
-                default=valid_initial_weekdays,
-                help="検索する曜日を選択してください（複数選択可）",
-                key="selected_weekdays"
-            )
-        
-        # カスタム期間の場合のみ日付選択を表示
-        start_date_program = None
-        end_date_program = None
-        if period_type == "カスタム":
-            col_start, col_end = st.columns(2)
-            with col_start:
-                initial_start_date = st.session_state.search_start_date if 'search_start_date' in st.session_state else None
-                start_date_program = st.date_input(
-                    "開始日",
-                    value=initial_start_date,
-                    help="検索開始日を選択してください",
-                    key="start_date_input_program"
-                )
-            with col_end:
-                initial_end_date = st.session_state.search_end_date if 'search_end_date' in st.session_state else None
-                end_date_program = st.date_input(
-                    "終了日",
-                    value=initial_end_date,
-                    help="検索終了日を選択してください",
-                    key="end_date_input_program"
-                )
-        
         # 検索ボタン
         search_button_program_type = st.form_submit_button("🔍 検索", use_container_width=True)
         
@@ -2565,10 +2564,8 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
                 performer_display = " / ".join(performer_names)
                 table_data.append({"項目": "出演者", "値": performer_display})
             
-            # 表組形式で表示
+            # 表組形式で表示（ヘッダーなし）
             if table_data:
-                st.markdown("| 項目 | 値 |")
-                st.markdown("|------|-----|")
                 for row in table_data:
                     # 値に改行が含まれる場合はHTMLで処理
                     value = str(row['値']).replace('|', '\\|')  # パイプ文字をエスケープ
