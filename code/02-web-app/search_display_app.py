@@ -977,6 +977,10 @@ with tab_detail:
                 st.session_state.keyword_detail = ""
             if 'use_vector_search' in st.session_state:
                 st.session_state.use_vector_search = False
+            # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
+            st.session_state.search_channel = "すべて"
+            st.session_state.search_date = None
+            st.session_state.search_time = None
             st.rerun()
 
 with tab_performer:
