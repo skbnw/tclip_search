@@ -789,7 +789,7 @@ with tab_date:
     col_clear_left, col_clear_right = st.columns([7, 3])
     with col_clear_right:
         if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button_date"):
-            # 検索条件をクリア
+            # 検索条件のセッションステートをクリア（ウィジェットの初期値設定のため）
             st.session_state.search_channel = "すべて"
             st.session_state.search_date = None
             st.session_state.search_time = None
@@ -800,24 +800,13 @@ with tab_date:
             st.session_state.search_results = []
             st.session_state.selected_doc_id = None
             st.session_state.current_page = 1
-            # 各タブの入力フィールドもクリア
-            # channel_dateはst.selectboxのkeyなので、削除
+            # 各タブの入力フィールドもクリア（ウィジェットのkeyを削除）
             if 'channel_date' in st.session_state:
                 del st.session_state.channel_date
-            # date_inputはst.date_inputのkeyなので、削除
             if 'date_input' in st.session_state:
                 del st.session_state.date_input
-            # time_inputはst.selectboxのkeyなので、削除
             if 'time_input' in st.session_state:
                 del st.session_state.time_input
-            # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
-            st.session_state.search_channel = "すべて"
-            st.session_state.search_date = None
-            st.session_state.search_time = None
-            st.session_state.search_program_name = ""
-            st.session_state.search_genre = ""
-            st.session_state.search_performer = ""
-            st.session_state.search_keyword = ""
             st.rerun()
 
 with tab_detail:
@@ -961,7 +950,7 @@ with tab_detail:
     col_clear_left, col_clear_right = st.columns([7, 3])
     with col_clear_right:
         if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button_detail"):
-            # 検索条件をクリア
+            # 検索条件のセッションステートをクリア（ウィジェットの初期値設定のため）
             st.session_state.search_channel = "すべて"
             st.session_state.search_date = None
             st.session_state.search_time = None
@@ -972,35 +961,21 @@ with tab_detail:
             st.session_state.search_results = []
             st.session_state.selected_doc_id = None
             st.session_state.current_page = 1
-            # 各タブの入力フィールドもクリア
-            # channel_detailはst.selectboxのkeyなので、削除
-            if 'channel_detail' in st.session_state:
-                del st.session_state.channel_detail
-            # date_input_detailはst.date_inputのkeyなので、削除
-            if 'date_input_detail' in st.session_state:
-                del st.session_state.date_input_detail
-            # time_input_detailはst.selectboxのkeyなので、削除
-            if 'time_input_detail' in st.session_state:
-                del st.session_state.time_input_detail
-            # program_name_detailはst.text_inputのkeyなので、削除
-            if 'program_name_detail' in st.session_state:
-                del st.session_state.program_name_detail
-            # genre_detailはst.selectboxのkeyなので、削除
-            if 'genre_detail' in st.session_state:
-                del st.session_state.genre_detail
-            # keyword_detailはst.text_inputのkeyなので、削除
-            if 'keyword_detail' in st.session_state:
-                del st.session_state.keyword_detail
             if 'use_vector_search' in st.session_state:
                 st.session_state.use_vector_search = False
-            # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
-            st.session_state.search_channel = "すべて"
-            st.session_state.search_date = None
-            st.session_state.search_time = None
-            st.session_state.search_program_name = ""
-            st.session_state.search_genre = ""
-            st.session_state.search_performer = ""
-            st.session_state.search_keyword = ""
+            # 各タブの入力フィールドもクリア（ウィジェットのkeyを削除）
+            if 'channel_detail' in st.session_state:
+                del st.session_state.channel_detail
+            if 'date_input_detail' in st.session_state:
+                del st.session_state.date_input_detail
+            if 'time_input_detail' in st.session_state:
+                del st.session_state.time_input_detail
+            if 'program_name_detail' in st.session_state:
+                del st.session_state.program_name_detail
+            if 'genre_detail' in st.session_state:
+                del st.session_state.genre_detail
+            if 'keyword_detail' in st.session_state:
+                del st.session_state.keyword_detail
             st.rerun()
 
 with tab_performer:
@@ -1109,7 +1084,7 @@ with tab_performer:
     col_clear_left, col_clear_right = st.columns([7, 3])
     with col_clear_right:
         if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button_performer"):
-            # 検索条件をクリア
+            # 検索条件のセッションステートをクリア（ウィジェットの初期値設定のため）
             st.session_state.search_channel = "すべて"
             st.session_state.search_date = None
             st.session_state.search_time = None
@@ -1120,26 +1095,15 @@ with tab_performer:
             st.session_state.search_results = []
             st.session_state.selected_doc_id = None
             st.session_state.current_page = 1
-            # 各タブの入力フィールドもクリア
-            # channel_performerはst.selectboxのkeyなので、削除
-            if 'channel_performer' in st.session_state:
-                del st.session_state.channel_performer
-            # keyword_performerはst.text_inputのkeyなので、削除
-            if 'keyword_performer' in st.session_state:
-                del st.session_state.keyword_performer
-            # performer_performerはst.selectboxのkeyなので、削除
-            if 'performer_performer' in st.session_state:
-                del st.session_state.performer_performer
             if 'use_vector_search' in st.session_state:
                 st.session_state.use_vector_search = False
-            # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
-            st.session_state.search_channel = "すべて"
-            st.session_state.search_date = None
-            st.session_state.search_time = None
-            st.session_state.search_program_name = ""
-            st.session_state.search_genre = ""
-            st.session_state.search_performer = ""
-            st.session_state.search_keyword = ""
+            # 各タブの入力フィールドもクリア（ウィジェットのkeyを削除）
+            if 'channel_performer' in st.session_state:
+                del st.session_state.channel_performer
+            if 'keyword_performer' in st.session_state:
+                del st.session_state.keyword_performer
+            if 'performer_performer' in st.session_state:
+                del st.session_state.performer_performer
             st.rerun()
 
 with tab_program_type:
@@ -1227,7 +1191,9 @@ with tab_program_type:
     def on_genre_change():
         if 'program_names_multiselect' in st.session_state:
             st.session_state.program_names_multiselect = []
-        st.session_state.last_genre_program = st.session_state.genre_program
+        # genre_programが存在する場合のみ設定
+        if 'genre_program' in st.session_state:
+            st.session_state.last_genre_program = st.session_state.genre_program
     
     genre_program = st.selectbox(
         "ジャンル",
@@ -1315,14 +1281,10 @@ with tab_program_type:
                 st.session_state.program_names_multiselect = []
             st.session_state.last_genre_program = genre_program
         
-        initial_program_names = st.session_state.program_names_multiselect if 'program_names_multiselect' in st.session_state else []
-        # 選択された番組名が現在のリストに存在するか確認
-        valid_program_names = [name for name in initial_program_names if name in program_names_list]
-        
+        # program_names_multiselectのkeyのみを使用（defaultは使用しない）
         selected_program_names = st.multiselect(
             "番組名を選択してください（複数選択可）",
             options=program_names_list,
-            default=valid_program_names,
             help=f"複数の番組を選択できます。Ctrlキー（Mac: Cmdキー）を押しながらクリックで複数選択（{len(program_names_list)}件）",
             key="program_names_multiselect"
         )
@@ -1358,7 +1320,7 @@ with tab_program_type:
     col_clear_left, col_clear_right = st.columns([7, 3])
     with col_clear_right:
         if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button_program"):
-            # 検索条件をクリア
+            # 検索条件のセッションステートをクリア（ウィジェットの初期値設定のため）
             st.session_state.search_channel = "すべて"
             st.session_state.search_date = None
             st.session_state.search_time = None
@@ -1369,8 +1331,6 @@ with tab_program_type:
             st.session_state.search_results = []
             st.session_state.selected_doc_id = None
             st.session_state.current_page = 1
-            # 各タブの入力フィールドもクリア
-            # まず、検索条件のセッションステートをクリア（ウィジェットの初期値設定のため）
             st.session_state.search_program_names = []
             st.session_state.search_period_type = "すべて"
             st.session_state.search_start_date = None
@@ -1378,13 +1338,14 @@ with tab_program_type:
             st.session_state.search_weekdays = []
             st.session_state.search_genre_program = "すべて"
             st.session_state.search_channels_program = []
-            # 番組選択タブの入力フィールドもクリア
-            # period_type、genre_program、start_date_input_program、end_date_input_program、selected_weekdaysはウィジェットのkeyなので、削除
+            # last_genre_programもクリア
+            if 'last_genre_program' in st.session_state:
+                del st.session_state.last_genre_program
+            # 番組選択タブの入力フィールドもクリア（ウィジェットのkeyを削除）
             if 'period_type' in st.session_state:
                 del st.session_state.period_type
             if 'genre_program' in st.session_state:
                 del st.session_state.genre_program
-            # program_names_multiselectはst.multiselectのkeyなので、削除
             if 'program_names_multiselect' in st.session_state:
                 del st.session_state.program_names_multiselect
             if 'start_date_input_program' in st.session_state:
