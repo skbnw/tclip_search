@@ -1111,191 +1111,163 @@ with tab_performer:
             st.rerun()
 
 with tab_program_type:
-    # 番組選択タブ: 期間設定、ジャンル、テレビ局、番組名の順
+    # 番組検索タブ: 期間設定、ジャンル、テレビ局、番組名（シンプルなデザイン）
     search_options = get_search_options(_s3_client=s3_client)
     
-    # 期間設定（最初に表示）
-    st.markdown("### 📅 期間設定")
-    period_options = ["すべて", "今週", "先週", "1カ月内", "曜日", "カスタム"]
-    initial_period_index = 0
-    if 'period_type' in st.session_state and st.session_state.period_type in period_options:
-        initial_period_index = period_options.index(st.session_state.period_type)
-    elif st.session_state.get("search_period_type", "すべて") in period_options:
-        initial_period_index = period_options.index(st.session_state.get("search_period_type", "すべて"))
-    
-    period_type = st.selectbox(
-        "期間タイプ",
-        options=period_options,
-        help="検索期間のタイプを選択してください",
-        key="period_type",
-        index=initial_period_index
-    )
-    
-    # 曜日選択（期間タイプが「曜日」の場合、複数選択可能）
-    selected_weekdays = []
-    if period_type == "曜日":
-        weekday_options = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
-        initial_weekdays = st.session_state.get("search_weekdays", [])
-        if not initial_weekdays:
-            initial_weekdays = []
-        # 初期選択状態を取得（存在するもののみ）
-        valid_initial_weekdays = [w for w in initial_weekdays if w in weekday_options]
-        selected_weekdays = st.multiselect(
-            "曜日（複数選択可）",
-            options=weekday_options,
-            default=valid_initial_weekdays,
-            help="検索する曜日を選択してください（複数選択可）",
-            key="selected_weekdays"
+    with st.form("search_form_program_type"):
+        # 期間設定
+        period_options = ["すべて", "今週", "先週", "1カ月内", "曜日", "カスタム"]
+        initial_period_index = 0
+        if 'period_type' in st.session_state and st.session_state.period_type in period_options:
+            initial_period_index = period_options.index(st.session_state.period_type)
+        elif st.session_state.get("search_period_type", "すべて") in period_options:
+            initial_period_index = period_options.index(st.session_state.get("search_period_type", "すべて"))
+        
+        period_type = st.selectbox(
+            "期間設定",
+            options=period_options,
+            help="検索期間のタイプを選択してください",
+            key="period_type",
+            index=initial_period_index
         )
-    
-    # カスタム期間の場合のみ日付選択を表示
-    start_date_program = None
-    end_date_program = None
-    if period_type == "カスタム":
-        col_start, col_end = st.columns(2)
-        with col_start:
-            initial_start_date = st.session_state.search_start_date if 'search_start_date' in st.session_state else None
-            start_date_program = st.date_input(
-                "開始日",
-                value=initial_start_date,
-                help="検索開始日を選択してください",
-                key="start_date_input_program"
+        
+        # 曜日選択（期間タイプが「曜日」の場合、複数選択可能）
+        selected_weekdays = []
+        if period_type == "曜日":
+            weekday_options = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
+            initial_weekdays = st.session_state.get("search_weekdays", [])
+            if not initial_weekdays:
+                initial_weekdays = []
+            # 初期選択状態を取得（存在するもののみ）
+            valid_initial_weekdays = [w for w in initial_weekdays if w in weekday_options]
+            selected_weekdays = st.multiselect(
+                "曜日（複数選択可）",
+                options=weekday_options,
+                default=valid_initial_weekdays,
+                help="検索する曜日を選択してください（複数選択可）",
+                key="selected_weekdays"
             )
-        with col_end:
-            initial_end_date = st.session_state.search_end_date if 'search_end_date' in st.session_state else None
-            end_date_program = st.date_input(
-                "終了日",
-                value=initial_end_date,
-                help="検索終了日を選択してください",
-                key="end_date_input_program"
+        
+        # カスタム期間の場合のみ日付選択を表示
+        start_date_program = None
+        end_date_program = None
+        if period_type == "カスタム":
+            col_start, col_end = st.columns(2)
+            with col_start:
+                initial_start_date = st.session_state.search_start_date if 'search_start_date' in st.session_state else None
+                start_date_program = st.date_input(
+                    "開始日",
+                    value=initial_start_date,
+                    help="検索開始日を選択してください",
+                    key="start_date_input_program"
+                )
+            with col_end:
+                initial_end_date = st.session_state.search_end_date if 'search_end_date' in st.session_state else None
+                end_date_program = st.date_input(
+                    "終了日",
+                    value=initial_end_date,
+                    help="検索終了日を選択してください",
+                    key="end_date_input_program"
+                )
+        
+        # ジャンルとテレビ局（2列）
+        col_genre, col_channel = st.columns([1, 1])
+        
+        with col_genre:
+            # ジャンル（プルダウン、固定順序で表示）
+            genre_options = ["すべて"]
+            available_genres = set(search_options.get('genres', []))
+            
+            # 固定順序のジャンルを順番に追加（データベースに存在するかどうかに関わらず）
+            for genre in GENRE_ORDER[1:]:  # "すべて"を除く
+                if genre == "その他":
+                    # 「その他」の前に、固定順序に含まれないジャンルを追加
+                    for other_genre in sorted(available_genres):
+                        if other_genre not in genre_options:
+                            genre_options.append(other_genre)
+                # データベースに存在する場合のみ追加
+                if genre in available_genres:
+                    genre_options.append(genre)
+            
+            initial_genre_index = 0
+            if 'genre_program' in st.session_state and st.session_state.genre_program in genre_options:
+                initial_genre_index = genre_options.index(st.session_state.genre_program)
+            elif st.session_state.get("search_genre_program", "すべて") in genre_options:
+                initial_genre_index = genre_options.index(st.session_state.get("search_genre_program", "すべて"))
+            
+            # ジャンルが変更されたときに番組名リストをリセットするコールバック
+            def on_genre_change():
+                if 'program_names_multiselect' in st.session_state:
+                    st.session_state.program_names_multiselect = []
+                # genre_programが存在する場合のみ設定
+                if 'genre_program' in st.session_state:
+                    st.session_state.last_genre_program = st.session_state.genre_program
+            
+            genre_program = st.selectbox(
+                "ジャンル",
+                options=genre_options,
+                help="ジャンルを選択してください（選択すると番組名が絞り込まれます）",
+                key="genre_program",
+                index=initial_genre_index,
+                on_change=on_genre_change
             )
-    
-    # ジャンル（プルダウン、固定順序で表示）
-    genre_options = ["すべて"]
-    available_genres = set(search_options.get('genres', []))
-    
-    # 固定順序のジャンルを順番に追加（データベースに存在するかどうかに関わらず）
-    for genre in GENRE_ORDER[1:]:  # "すべて"を除く
-        if genre == "その他":
-            # 「その他」の前に、固定順序に含まれないジャンルを追加
-            for other_genre in sorted(available_genres):
-                if other_genre not in genre_options:
-                    genre_options.append(other_genre)
-        # データベースに存在する場合のみ追加
-        if genre in available_genres:
-            genre_options.append(genre)
-    
-    initial_genre_index = 0
-    if 'genre_program' in st.session_state and st.session_state.genre_program in genre_options:
-        initial_genre_index = genre_options.index(st.session_state.genre_program)
-    elif st.session_state.get("search_genre_program", "すべて") in genre_options:
-        initial_genre_index = genre_options.index(st.session_state.get("search_genre_program", "すべて"))
-    
-    # ジャンルが変更されたときに番組名リストをリセットするコールバック
-    def on_genre_change():
-        if 'program_names_multiselect' in st.session_state:
-            st.session_state.program_names_multiselect = []
-        # genre_programが存在する場合のみ設定
-        if 'genre_program' in st.session_state:
-            st.session_state.last_genre_program = st.session_state.genre_program
-    
-    genre_program = st.selectbox(
-        "ジャンル",
-        options=genre_options,
-        help="ジャンルを選択してください（選択すると番組名が絞り込まれます）",
-        key="genre_program",
-        index=initial_genre_index,
-        on_change=on_genre_change
-    )
-    
-    # テレビ局選択（チェックボックス）
-    st.markdown("### 📺 テレビ局選択")
-    channel_options = ["すべて", "NHK総合", "NHK Eテレ", "日本テレビ", "TBS", "フジテレビ", "テレビ朝日", "テレビ東京"]
-    
-    # 初期選択状態を取得
-    initial_channels = st.session_state.get("search_channels_program", [])
-    if not initial_channels:
-        initial_channels = ["すべて"]
-    
-    selected_channels = []
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        all_checked = st.checkbox("すべて", value="すべて" in initial_channels, key="channel_all_program")
-        if all_checked:
-            selected_channels.append("すべて")
-        nhk_checked = st.checkbox("NHK総合", value="NHK総合" in initial_channels, key="channel_nhk_program")
-        if nhk_checked:
-            selected_channels.append("NHK総合")
-    
-    with col2:
-        nhk_etv_checked = st.checkbox("NHK Eテレ", value="NHK Eテレ" in initial_channels, key="channel_nhk_etv_program")
-        if nhk_etv_checked:
-            selected_channels.append("NHK Eテレ")
-        ntv_checked = st.checkbox("日本テレビ", value="日本テレビ" in initial_channels, key="channel_ntv_program")
-        if ntv_checked:
-            selected_channels.append("日本テレビ")
-    
-    with col3:
-        tbs_checked = st.checkbox("TBS", value="TBS" in initial_channels, key="channel_tbs_program")
-        if tbs_checked:
-            selected_channels.append("TBS")
-        fuji_checked = st.checkbox("フジテレビ", value="フジテレビ" in initial_channels, key="channel_fuji_program")
-        if fuji_checked:
-            selected_channels.append("フジテレビ")
-    
-    with col4:
-        tv_asahi_checked = st.checkbox("テレビ朝日", value="テレビ朝日" in initial_channels, key="channel_tv_asahi_program")
-        if tv_asahi_checked:
-            selected_channels.append("テレビ朝日")
-        tv_tokyo_checked = st.checkbox("テレビ東京", value="テレビ東京" in initial_channels, key="channel_tv_tokyo_program")
-        if tv_tokyo_checked:
-            selected_channels.append("テレビ東京")
-    
-    # 「すべて」が選択されている場合、他の選択をクリア
-    if "すべて" in selected_channels:
-        selected_channels = ["すべて"]
-    
-    # テレビ局が変更されたときに番組名リストをリセットするコールバック
-    def on_channel_change():
-        if 'program_names_multiselect' in st.session_state:
-            st.session_state.program_names_multiselect = []
-        st.session_state.last_channels_program = selected_channels
-    
-    # テレビ局が変更されたかチェック
-    last_channels = st.session_state.get("last_channels_program", [])
-    if last_channels != selected_channels:
-        if 'program_names_multiselect' in st.session_state:
-            st.session_state.program_names_multiselect = []
-        st.session_state.last_channels_program = selected_channels
-    
-    # ジャンルとテレビ局でフィルタリングした番組名リストを取得
-    program_names_list = get_program_names(
-        _s3_client=s3_client, 
-        genre_filter=genre_program,
-        channel_filters=selected_channels if selected_channels and "すべて" not in selected_channels else None
-    )
-    
-    # 番組名（複数選択、multiselectで直感的に選択可能）
-    st.markdown("### 📺 番組名（複数選択可）")
-    if program_names_list:
+        
+        with col_channel:
+            # テレビ局選択（シンプルなselectbox、複数選択は削除）
+            channel_options = ["すべて", "NHK総合", "NHK Eテレ", "日本テレビ", "TBS", "フジテレビ", "テレビ朝日", "テレビ東京"]
+            
+            initial_channel_index = 0
+            initial_channels = st.session_state.get("search_channels_program", [])
+            if initial_channels and "すべて" not in initial_channels and len(initial_channels) > 0:
+                # 最初の選択されたチャンネルを使用
+                if initial_channels[0] in channel_options:
+                    initial_channel_index = channel_options.index(initial_channels[0])
+            elif "すべて" in initial_channels:
+                initial_channel_index = 0
+            
+            selected_channel_single = st.selectbox(
+                "テレビ局",
+                options=channel_options,
+                help="テレビ局を選択してください",
+                key="channel_program_single",
+                index=initial_channel_index
+            )
+            
+            # 選択されたチャンネルをリスト形式に変換（後方互換性のため）
+            selected_channels = [selected_channel_single] if selected_channel_single != "すべて" else ["すべて"]
+        
+        # テレビ局が変更されたときに番組名リストをリセット
+        last_channels = st.session_state.get("last_channels_program", [])
+        if last_channels != selected_channels:
+            if 'program_names_multiselect' in st.session_state:
+                st.session_state.program_names_multiselect = []
+            st.session_state.last_channels_program = selected_channels
+        
         # ジャンルが変更された場合、選択された番組名をリセット
         if 'last_genre_program' not in st.session_state or st.session_state.last_genre_program != genre_program:
             if 'program_names_multiselect' in st.session_state:
                 st.session_state.program_names_multiselect = []
             st.session_state.last_genre_program = genre_program
         
-        # program_names_multiselectのkeyのみを使用（defaultは使用しない）
-        selected_program_names = st.multiselect(
-            "番組名を選択してください（複数選択可）",
-            options=program_names_list,
-            help=f"複数の番組を選択できます。Ctrlキー（Mac: Cmdキー）を押しながらクリックで複数選択（{len(program_names_list)}件）",
-            key="program_names_multiselect"
+        # ジャンルとテレビ局でフィルタリングした番組名リストを取得
+        program_names_list = get_program_names(
+            _s3_client=s3_client, 
+            genre_filter=genre_program,
+            channel_filters=selected_channels if selected_channels and "すべて" not in selected_channels else None
         )
-    else:
-        st.warning("⚠️ 番組名データを読み込み中...")
-        selected_program_names = []
-    
+        
+        # 番組名（複数選択）
+        if program_names_list:
+            selected_program_names = st.multiselect(
+                "番組名（複数選択可）",
+                options=program_names_list,
+                help=f"複数の番組を選択できます。Ctrlキー（Mac: Cmdキー）を押しながらクリックで複数選択（{len(program_names_list)}件）",
+                key="program_names_multiselect"
+            )
+        else:
+            st.warning("⚠️ 番組名データを読み込み中...")
+            selected_program_names = []
+        
         # 検索ボタン
         search_button_program_type = st.form_submit_button("🔍 検索", use_container_width=True)
         
@@ -1356,23 +1328,9 @@ with tab_program_type:
                 del st.session_state.end_date_input_program
             if 'selected_weekdays' in st.session_state:
                 del st.session_state.selected_weekdays
-            # テレビ局選択のチェックボックスをクリア
-            if 'channel_all_program' in st.session_state:
-                st.session_state.channel_all_program = True  # 「すべて」を選択状態にする
-            if 'channel_nhk_program' in st.session_state:
-                st.session_state.channel_nhk_program = False
-            if 'channel_nhk_etv_program' in st.session_state:
-                st.session_state.channel_nhk_etv_program = False
-            if 'channel_ntv_program' in st.session_state:
-                st.session_state.channel_ntv_program = False
-            if 'channel_tbs_program' in st.session_state:
-                st.session_state.channel_tbs_program = False
-            if 'channel_fuji_program' in st.session_state:
-                st.session_state.channel_fuji_program = False
-            if 'channel_tv_asahi_program' in st.session_state:
-                st.session_state.channel_tv_asahi_program = False
-            if 'channel_tv_tokyo_program' in st.session_state:
-                st.session_state.channel_tv_tokyo_program = False
+            # テレビ局選択のselectboxのkeyを削除
+            if 'channel_program_single' in st.session_state:
+                del st.session_state.channel_program_single
             # テレビ局選択の状態をリセット
             if 'last_channels_program' in st.session_state:
                 st.session_state.last_channels_program = []
