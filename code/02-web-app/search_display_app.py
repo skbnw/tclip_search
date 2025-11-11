@@ -1278,11 +1278,15 @@ search_button = search_button_date or search_button_detail or search_button_perf
 # 最新データを表示（検索条件の下）
 st.markdown("---")
 try:
-    latest_programs = get_latest_programs(_s3_client=s3_client, limit=6)
+    latest_programs = get_latest_programs(_s3_client=s3_client, limit=10)  # より多くの候補から取得
     if latest_programs and len(latest_programs) > 0:
         # 画像があるデータのみフィルタリング（画像URLも一緒に保存）
         programs_with_images = []
-        for program in latest_programs:
+        max_check = min(10, len(latest_programs))  # 最大10件までチェック
+        
+        for i, program in enumerate(latest_programs[:max_check]):
+            if len(programs_with_images) >= 6:  # 6件見つかったら終了
+                break
             doc_id = program.get('doc_id', '')
             if doc_id:
                 try:
@@ -1369,7 +1373,10 @@ except Exception as e:
     # ただし、その後の処理は続行する
     # デバッグ用（管理者のみ表示）
     if is_admin():
+        import traceback
         st.error(f"最新データの表示エラー: {str(e)}")
+        with st.expander("エラー詳細"):
+            st.code(traceback.format_exc())
     pass
 
 st.markdown("---")
