@@ -2542,7 +2542,7 @@ def search_master_data_with_chunks(
         if (len(results) == 0 or use_vector_search) and SENTENCE_TRANSFORMERS_AVAILABLE and keyword and keyword.strip():
             # チャンクデータを取得してベクトル検索を実行
             vector_results = search_with_vector_similarity(
-                _s3_client, filtered_masters, keyword, max_results=max_results
+                _s3_client, filtered_masters, keyword, max_results=max_results, similarity_threshold=0.35
             )
             
             # デバッグ情報（管理者のみ）
@@ -2682,7 +2682,7 @@ def search_with_vector_similarity(
     master_list: List[Dict],
     query: str,
     max_results: int = 500,
-    similarity_threshold: float = 0.3
+    similarity_threshold: float = 0.35  # 類似度の閾値を0.35に上げる（より関連性の高い結果のみ）
 ) -> List[Dict]:
     """ベクトル類似度検索を実行（高速化版：事前計算されたベクトルを使用）"""
     if not query or not query.strip():
@@ -2754,9 +2754,8 @@ def search_with_vector_similarity(
                 best_similarity = similarity
                 best_chunk = chunk
         
-        # 類似度が閾値以上の場合、結果に追加（閾値を下げてより多くの結果を取得）
-        # ベクトル検索が有効な場合は、閾値を下げる（0.2に変更）
-        if best_similarity >= 0.2:  # 0.3から0.2に下げる
+        # 類似度が閾値以上の場合、結果に追加（類似度が低い結果は除外）
+        if best_similarity >= similarity_threshold:  # デフォルト0.35以上のみ表示
             # マスターデータに類似度スコアを追加（ディープコピーで確実に保存）
             master_with_score = copy.deepcopy(master)
             master_with_score['vector_similarity'] = float(best_similarity)  # 明示的にfloatに変換
