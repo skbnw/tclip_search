@@ -1385,6 +1385,10 @@ with tab_program_type:
                 st.session_state.last_channels_program = []
             if 'last_genre_program' in st.session_state:
                 st.session_state.last_genre_program = "すべて"
+            # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
+            st.session_state.search_channel = "すべて"
+            st.session_state.search_date = None
+            st.session_state.search_time = None
             st.rerun()
 
 # 最新データタブ
