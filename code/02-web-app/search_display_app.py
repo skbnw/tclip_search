@@ -3937,11 +3937,36 @@ elif st.session_state.search_results:
                         st.rerun()
                 
                 # キーワードマッチのスニペットを表示
+                match_info = []
+                
+                # テキストマッチ（キーワード検索）
                 if keyword_snippets:
-                    st.markdown(f"<div style='padding: 0.5rem; background-color: #f0f0f0; border-left: 3px solid #4CAF50; margin: 0.5rem 0;'><small><strong>🔍 マッチ箇所:</strong></small><br>", unsafe_allow_html=True)
-                    for snippet in keyword_snippets[:2]:  # 最大2つまで表示
-                        st.markdown(f"<small>{snippet}</small>", unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    match_info.append(("テキストマッチ", keyword_snippets))
+                
+                # ベクトル検索の結果
+                vector_similarity = master.get('vector_similarity')
+                best_chunk = master.get('best_chunk')
+                if vector_similarity is not None and best_chunk:
+                    chunk_text = best_chunk.get('text', '')
+                    if chunk_text:
+                        # チャンクテキストを表示（最大200文字）
+                        chunk_preview = chunk_text[:200] + "..." if len(chunk_text) > 200 else chunk_text
+                        similarity_percent = f"{vector_similarity * 100:.1f}%"
+                        match_info.append(("ベクトル検索", [f"類似度: {similarity_percent}", f"チャンク: {chunk_preview}"]))
+                
+                # マッチ情報を表示
+                if match_info:
+                    for match_type, snippets in match_info:
+                        if match_type == "テキストマッチ":
+                            st.markdown(f"<div style='padding: 0.5rem; background-color: #f0f0f0; border-left: 3px solid #4CAF50; margin: 0.5rem 0;'><small><strong>🔍 テキストマッチ:</strong></small><br>", unsafe_allow_html=True)
+                            for snippet in snippets[:2]:  # 最大2つまで表示
+                                st.markdown(f"<small>{snippet}</small>", unsafe_allow_html=True)
+                            st.markdown("</div>", unsafe_allow_html=True)
+                        elif match_type == "ベクトル検索":
+                            st.markdown(f"<div style='padding: 0.5rem; background-color: #e3f2fd; border-left: 3px solid #2196F3; margin: 0.5rem 0;'><small><strong>🔮 ベクトル検索:</strong></small><br>", unsafe_allow_html=True)
+                            for snippet in snippets:
+                                st.markdown(f"<small>{snippet}</small>", unsafe_allow_html=True)
+                            st.markdown("</div>", unsafe_allow_html=True)
                 
                 st.markdown("---")
         
