@@ -1278,96 +1278,105 @@ search_button = search_button_date or search_button_detail or search_button_perf
 # 最新データを表示（検索条件の下）
 st.markdown("---")
 try:
-    latest_programs = get_latest_programs(_s3_client=s3_client, limit=10)  # より多くの候補から取得
+    latest_programs = get_latest_programs(_s3_client=s3_client, limit=100)  # より多くのデータを取得
     if latest_programs and len(latest_programs) > 0:
-        # 画像があるデータのみフィルタリング（画像URLも一緒に保存）
-        programs_with_images = []
-        max_check = min(10, len(latest_programs))  # 最大10件までチェック
+        # テレビ局ごとにグループ化
+        channel_groups = {}
+        channel_mapping = {
+            'NHK総合': ['NHK総合', 'NHK', 'NHKG'],
+            'NHK Eテレ': ['NHK Eテレ', 'NHK E', 'NHKE'],
+            '日本テレビ': ['日本テレビ', 'NTV', '日テレ'],
+            'TBS': ['TBS'],
+            'フジテレビ': ['フジテレビ', 'フジ', 'Fuji'],
+            'テレビ朝日': ['テレビ朝日', 'テレ朝', 'TV Asahi'],
+            'テレビ東京': ['テレビ東京', 'テレ東', 'TV Tokyo']
+        }
         
-        for i, program in enumerate(latest_programs[:max_check]):
-            if len(programs_with_images) >= 6:  # 6件見つかったら終了
-                break
-            doc_id = program.get('doc_id', '')
-            if doc_id:
-                try:
-                    images = list_images(_s3_client=s3_client, doc_id=doc_id)
-                    if images and len(images) > 0:
-                        # 画像URLをプログラムデータに追加
-                        program['thumbnail_url'] = images[0].get('url', None)
-                        programs_with_images.append(program)
-                except Exception as e:
-                    # 個別のエラーは無視して続行
-                    continue
+        # 主要6局のリスト
+        main_channels = ['NHK総合', 'NHK Eテレ', '日本テレビ', 'TBS', 'フジテレビ', 'テレビ朝日']
         
-        if programs_with_images and len(programs_with_images) > 0:
+        for program in latest_programs:
+            metadata = program.get('metadata', {})
+            channel = metadata.get('channel', '') or metadata.get('放送局', '') or ''
+            
+            # チャンネル名を正規化してグループ化
+            matched_channel = None
+            for main_channel in main_channels:
+                candidates = channel_mapping.get(main_channel, [main_channel])
+                channel_lower = channel.lower()
+                for candidate in candidates:
+                    if candidate.lower() in channel_lower or channel_lower in candidate.lower():
+                        matched_channel = main_channel
+                        break
+                if matched_channel:
+                    break
+            
+            if matched_channel:
+                if matched_channel not in channel_groups:
+                    channel_groups[matched_channel] = []
+                channel_groups[matched_channel].append(program)
+        
+        # 各局最大5件まで
+        for channel in channel_groups:
+            channel_groups[channel] = channel_groups[channel][:5]
+        
+        if channel_groups:
             st.subheader("📺 最新データ")
             col1, col2 = st.columns([3, 1])
             with col1:
-                st.caption(f"最新 {len(programs_with_images)} 件のデータ（放送開始時間順、画像ありのみ）")
+                total_count = sum(len(programs) for programs in channel_groups.values())
+                st.caption(f"最新データ（放送開始時間順、各局最大5件）")
             with col2:
                 jst_now = get_jst_now()
                 st.caption(f"現在時刻（JST）: {jst_now.strftime('%Y年%m月%d日 %H:%M')}")
             
-            # 最新データをグリッド形式で表示（サムネイル付き）
-            # 2列のグリッドレイアウト
-            num_cols = 2
-            for row_idx in range(0, len(programs_with_images), num_cols):
-                cols = st.columns(num_cols)
+            # 3つの段落（上下）で表示：2列×3行のレイアウト
+            channels_list = list(channel_groups.keys())[:6]  # 最大6局
+            
+            # 3つの段落に分割（各段落2局ずつ）
+            paragraphs = [channels_list[i:i+2] for i in range(0, len(channels_list), 2)]
+            
+            for para_idx, paragraph_channels in enumerate(paragraphs):
+                if para_idx > 0:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                
+                # 各段落は2列
+                cols = st.columns(2)
                 for col_idx, col in enumerate(cols):
-                    program_idx = row_idx + col_idx
-                    if program_idx < len(programs_with_images):
-                        program = programs_with_images[program_idx]
+                    if col_idx < len(paragraph_channels):
+                        channel = paragraph_channels[col_idx]
+                        programs = channel_groups[channel]
+                        
                         with col:
-                            try:
+                            st.markdown(f"### 📡 {channel}")
+                            
+                            for program in programs:
                                 metadata = program.get('metadata', {})
                                 doc_id = program.get('doc_id', '')
-                                thumbnail_url = program.get('thumbnail_url', None)
-                                
-                                if not thumbnail_url:
-                                    continue
-                                
                                 program_name = metadata.get('program_name', '') or metadata.get('program_title', '') or metadata.get('title', '') or '番組名不明'
-                                channel = metadata.get('channel', '') or metadata.get('放送局', '') or '放送局不明'
                                 start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', '')) or ''
                                 
-                                # 日時を整形
+                                # 時間を整形
                                 time_display = ''
                                 if start_time and len(start_time) >= 12 and start_time[:12].isdigit():
                                     # YYYYMMDDHHMM形式
-                                    year = start_time[:4]
-                                    month = start_time[4:6]
-                                    day = start_time[6:8]
                                     hour = start_time[8:10]
                                     minute = start_time[10:12]
-                                    time_display = f"{year}年{month}月{day}日 {hour}:{minute}"
+                                    time_display = f"{hour}:{minute}"
                                 elif start_time and len(start_time) >= 8 and start_time[:8].isdigit():
-                                    # YYYYMMDD形式
-                                    year = start_time[:4]
-                                    month = start_time[4:6]
-                                    day = start_time[6:8]
-                                    time_display = f"{year}年{month}月{day}日"
+                                    # YYYYMMDD形式（時間なし）
+                                    time_display = ""
                                 
-                                # カード形式で表示
-                                with st.container():
-                                    # サムネイル画像を表示
-                                    st.image(thumbnail_url, use_container_width=True, caption=program_name)
-                                    
-                                    # 番組情報を表示
-                                    st.markdown(f"**{program_name}**")
-                                    st.caption(f"📡 {channel}")
-                                    st.caption(f"🕐 {time_display}")
-                                    
-                                    # 詳細を見るボタン
-                                    if st.button("詳細を見る", key=f"latest_program_{doc_id}", use_container_width=True):
-                                        st.session_state.selected_doc_id = doc_id
-                                        # 検索結果に含めるために、プログラムデータを追加
-                                        if 'search_results' not in st.session_state:
-                                            st.session_state.search_results = []
-                                        # 既存の検索結果をクリアせず、選択されたdoc_idを保持
-                                        st.rerun()
-                            except Exception as e:
-                                # 個別のカード表示エラーは無視して続行
-                                continue
+                                # 番組名を10文字程度に切り詰め
+                                program_name_short = program_name[:10] + "..." if len(program_name) > 10 else program_name
+                                
+                                # クリック可能なボタン形式で表示
+                                button_key = f"latest_{channel}_{doc_id}_{para_idx}_{col_idx}_{program_name_short}"
+                                if st.button(f"🕐 {time_display} {program_name_short}", key=button_key, use_container_width=True):
+                                    st.session_state.selected_doc_id = doc_id
+                                    if 'search_results' not in st.session_state:
+                                        st.session_state.search_results = []
+                                    st.rerun()
 except Exception as e:
     # エラーが発生した場合は表示しない（サイレントに失敗）
     # ただし、その後の処理は続行する
