@@ -14,6 +14,7 @@ import json
 import sys
 import os
 import re
+import copy
 import numpy as np
 from typing import Dict, List, Optional, Tuple
 from io import BytesIO
@@ -2180,11 +2181,31 @@ def search_master_data_with_chunks(
         # ベクトル検索を試行（チャンクデータにベクトルが含まれている場合、またはベクトル検索が有効な場合）
         # テキスト検索で結果が見つからない場合、またはベクトル検索が有効な場合
         use_vector_search = st.session_state.get("use_vector_search", False)
-        if (len(results) == 0 or use_vector_search) and SENTENCE_TRANSFORMERS_AVAILABLE:
+        
+        # デバッグ情報（管理者のみ）
+        if is_admin() and keyword:
+            with st.expander("🔧 ベクトル検索デバッグ（検索実行前）"):
+                st.write(f"use_vector_search: {use_vector_search}")
+                st.write(f"SENTENCE_TRANSFORMERS_AVAILABLE: {SENTENCE_TRANSFORMERS_AVAILABLE}")
+                st.write(f"keyword: {keyword}")
+                st.write(f"len(results): {len(results)}")
+                st.write(f"条件: (len(results) == 0 or use_vector_search) and SENTENCE_TRANSFORMERS_AVAILABLE = {(len(results) == 0 or use_vector_search) and SENTENCE_TRANSFORMERS_AVAILABLE}")
+        
+        if (len(results) == 0 or use_vector_search) and SENTENCE_TRANSFORMERS_AVAILABLE and keyword and keyword.strip():
             # チャンクデータを取得してベクトル検索を実行
             vector_results = search_with_vector_similarity(
                 _s3_client, filtered_masters, keyword, max_results=max_results
             )
+            
+            # デバッグ情報（管理者のみ）
+            if is_admin():
+                with st.expander("🔧 ベクトル検索デバッグ（検索実行後）"):
+                    st.write(f"vector_results count: {len(vector_results) if vector_results else 0}")
+                    if vector_results:
+                        st.write(f"最初の結果のkeys: {list(vector_results[0].keys()) if vector_results else []}")
+                        st.write(f"最初の結果のvector_similarity: {vector_results[0].get('vector_similarity') if vector_results else None}")
+                        st.write(f"最初の結果のbest_chunk exists: {vector_results[0].get('best_chunk') is not None if vector_results else False}")
+            
             if vector_results:
                 # 既存の結果のdoc_idをマッピング
                 existing_results_by_doc_id = {r.get('doc_id', ''): r for r in results}
@@ -2350,12 +2371,13 @@ def search_with_vector_similarity(
                 best_similarity = similarity
                 best_chunk = chunk
         
-        # 類似度が閾値以上の場合、結果に追加
-        if best_similarity >= similarity_threshold:
-            # マスターデータに類似度スコアを追加
-            master_with_score = master.copy()
-            master_with_score['vector_similarity'] = best_similarity
-            master_with_score['best_chunk'] = best_chunk
+        # 類似度が閾値以上の場合、結果に追加（閾値を下げてより多くの結果を取得）
+        # ベクトル検索が有効な場合は、閾値を下げる（0.2に変更）
+        if best_similarity >= 0.2:  # 0.3から0.2に下げる
+            # マスターデータに類似度スコアを追加（ディープコピーで確実に保存）
+            master_with_score = copy.deepcopy(master)
+            master_with_score['vector_similarity'] = float(best_similarity)  # 明示的にfloatに変換
+            master_with_score['best_chunk'] = copy.deepcopy(best_chunk) if best_chunk else None
             results_with_scores.append((best_similarity, master_with_score))
     
     progress_bar.empty()
