@@ -793,13 +793,15 @@ with tab_date:
             st.session_state.selected_doc_id = None
             st.session_state.current_page = 1
             # 各タブの入力フィールドもクリア
-            # channel_dateはst.selectboxのkeyなので、削除してから再設定
+            # channel_dateはst.selectboxのkeyなので、削除
             if 'channel_date' in st.session_state:
                 del st.session_state.channel_date
+            # date_inputはst.date_inputのkeyなので、削除
             if 'date_input' in st.session_state:
-                st.session_state.date_input = None
+                del st.session_state.date_input
+            # time_inputはst.selectboxのkeyなので、削除
             if 'time_input' in st.session_state:
-                st.session_state.time_input = None
+                del st.session_state.time_input
             st.rerun()
 
 with tab_detail:
@@ -945,16 +947,18 @@ with tab_detail:
             st.session_state.selected_doc_id = None
             st.session_state.current_page = 1
             # 各タブの入力フィールドもクリア
-            # channel_detailはst.selectboxのkeyなので、削除してから再設定
+            # channel_detailはst.selectboxのkeyなので、削除
             if 'channel_detail' in st.session_state:
                 del st.session_state.channel_detail
+            # date_input_detailはst.date_inputのkeyなので、削除
             if 'date_input_detail' in st.session_state:
-                st.session_state.date_input_detail = None
+                del st.session_state.date_input_detail
+            # time_input_detailはst.selectboxのkeyなので、削除
             if 'time_input_detail' in st.session_state:
-                st.session_state.time_input_detail = None
+                del st.session_state.time_input_detail
             if 'program_name_detail' in st.session_state:
                 st.session_state.program_name_detail = ""
-            # genre_detailはst.selectboxのkeyなので、削除してから再設定
+            # genre_detailはst.selectboxのkeyなので、削除
             if 'genre_detail' in st.session_state:
                 del st.session_state.genre_detail
             if 'keyword_detail' in st.session_state:
@@ -1326,18 +1330,19 @@ with tab_program_type:
             if 'search_channels_program' in st.session_state:
                 st.session_state.search_channels_program = []
             # 番組選択タブの入力フィールドもクリア
+            # period_type、genre_program、start_date_input_program、end_date_input_program、selected_weekdaysはウィジェットのkeyなので、削除
             if 'period_type' in st.session_state:
-                st.session_state.period_type = "すべて"
+                del st.session_state.period_type
             if 'genre_program' in st.session_state:
-                st.session_state.genre_program = "すべて"
+                del st.session_state.genre_program
             if 'program_names_multiselect' in st.session_state:
                 st.session_state.program_names_multiselect = []
             if 'start_date_input_program' in st.session_state:
-                st.session_state.start_date_input_program = None
+                del st.session_state.start_date_input_program
             if 'end_date_input_program' in st.session_state:
-                st.session_state.end_date_input_program = None
+                del st.session_state.end_date_input_program
             if 'selected_weekdays' in st.session_state:
-                st.session_state.selected_weekdays = []
+                del st.session_state.selected_weekdays
             # テレビ局選択のチェックボックスをクリア
             if 'channel_all_program' in st.session_state:
                 st.session_state.channel_all_program = True  # 「すべて」を選択状態にする
