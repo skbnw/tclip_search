@@ -233,6 +233,15 @@ def get_jst_now() -> datetime:
     jst = pytz.timezone('Asia/Tokyo')
     return datetime.now(jst)
 
+# タイトル部分に現在時刻を右寄せで表示
+col_title_time_left, col_title_time_right = st.columns([3, 1])
+with col_title_time_right:
+    jst_now = get_jst_now()
+    # 曜日の英語表記
+    weekday_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    weekday_en = weekday_names[jst_now.weekday()]
+    st.markdown(f"<div style='text-align: right; padding-top: 0.5rem;'><small>現在時刻: {jst_now.strftime('%Y-%m-%d %H:%M')} {weekday_en}</small></div>", unsafe_allow_html=True)
+
 # 最新番組データの取得関数
 @st.cache_data(ttl=300)  # 5分キャッシュ
 def get_latest_programs(_s3_client, limit: int = 5) -> List[Dict]:
@@ -1321,14 +1330,7 @@ try:
             channel_groups[channel] = channel_groups[channel][:3]
         
         if channel_groups:
-            st.subheader("📺 最新データ")
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                total_count = sum(len(programs) for programs in channel_groups.values())
-                st.caption(f"最新データ（放送開始時間順、各局最大3件）")
-            with col2:
-                jst_now = get_jst_now()
-                st.caption(f"現在時刻（JST）: {jst_now.strftime('%Y年%m月%d日 %H:%M')}")
+            st.subheader("最新データ")
             
             # 内窓方式（スクロール可能な領域）で表示
             st.markdown("""
