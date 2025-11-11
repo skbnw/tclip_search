@@ -1292,8 +1292,8 @@ try:
             'テレビ東京': ['テレビ東京', 'テレ東', 'TV Tokyo']
         }
         
-        # 主要6局のリスト
-        main_channels = ['NHK総合', 'NHK Eテレ', '日本テレビ', 'TBS', 'フジテレビ', 'テレビ朝日']
+        # 主要6局のリスト（指定された順序）
+        main_channels = ['NHK総合', 'NHK Eテレ', '日本テレビ', 'TBS', 'フジテレビ', 'テレビ朝日', 'テレビ東京']
         
         for program in latest_programs:
             metadata = program.get('metadata', {})
@@ -1316,25 +1316,29 @@ try:
                     channel_groups[matched_channel] = []
                 channel_groups[matched_channel].append(program)
         
-        # 各局最大5件まで
+        # 各局最大3件まで
         for channel in channel_groups:
-            channel_groups[channel] = channel_groups[channel][:5]
+            channel_groups[channel] = channel_groups[channel][:3]
         
         if channel_groups:
             st.subheader("📺 最新データ")
             col1, col2 = st.columns([3, 1])
             with col1:
                 total_count = sum(len(programs) for programs in channel_groups.values())
-                st.caption(f"最新データ（放送開始時間順、各局最大5件）")
+                st.caption(f"最新データ（放送開始時間順、各局最大3件）")
             with col2:
                 jst_now = get_jst_now()
                 st.caption(f"現在時刻（JST）: {jst_now.strftime('%Y年%m月%d日 %H:%M')}")
             
-            # 3つの段落（上下）で表示：2列×3行のレイアウト
-            channels_list = list(channel_groups.keys())[:6]  # 最大6局
-            
-            # 3つの段落に分割（各段落2局ずつ）
-            paragraphs = [channels_list[i:i+2] for i in range(0, len(channels_list), 2)]
+            # 指定された順序で3つの段落に分割
+            # 段落1: NHK総合、日本テレビ
+            # 段落2: TBS、テレビ朝日
+            # 段落3: フジテレビ、テレビ東京
+            paragraphs = [
+                ['NHK総合', '日本テレビ'],
+                ['TBS', 'テレビ朝日'],
+                ['フジテレビ', 'テレビ東京']
+            ]
             
             for para_idx, paragraph_channels in enumerate(paragraphs):
                 if para_idx > 0:
@@ -1345,6 +1349,9 @@ try:
                 for col_idx, col in enumerate(cols):
                     if col_idx < len(paragraph_channels):
                         channel = paragraph_channels[col_idx]
+                        # チャンネルが存在する場合のみ表示
+                        if channel not in channel_groups or len(channel_groups[channel]) == 0:
+                            continue
                         programs = channel_groups[channel]
                         
                         with col:
@@ -1370,13 +1377,18 @@ try:
                                 # 番組名を10文字程度に切り詰め
                                 program_name_short = program_name[:10] + "..." if len(program_name) > 10 else program_name
                                 
-                                # クリック可能なボタン形式で表示
-                                button_key = f"latest_{channel}_{doc_id}_{para_idx}_{col_idx}_{program_name_short}"
-                                if st.button(f"🕐 {time_display} {program_name_short}", key=button_key, use_container_width=True):
-                                    st.session_state.selected_doc_id = doc_id
-                                    if 'search_results' not in st.session_state:
-                                        st.session_state.search_results = []
-                                    st.rerun()
+                                # 左寄せで表示（時間と番組名を横並び）
+                                col_time, col_name = st.columns([1, 4])
+                                with col_time:
+                                    st.markdown(f"**{time_display}**")
+                                with col_name:
+                                    button_key = f"latest_{channel}_{doc_id}_{para_idx}_{col_idx}_{program_name_short}"
+                                    if st.button(program_name_short, key=button_key, use_container_width=True):
+                                        st.session_state.selected_doc_id = doc_id
+                                        if 'search_results' not in st.session_state:
+                                            st.session_state.search_results = []
+                                        st.rerun()
+                                st.markdown("---")
 except Exception as e:
     # エラーが発生した場合は表示しない（サイレントに失敗）
     # ただし、その後の処理は続行する
