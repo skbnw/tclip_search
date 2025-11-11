@@ -2576,9 +2576,13 @@ def search_master_data_with_chunks(
                         if len(results) >= max_results:
                             break
                 
-                # ベクトル検索の結果を類似度でソート（類似度の高い順、ベクトル検索情報があるもの優先）
+                # ベクトル検索の結果を優先表示（類似度の高い順、ベクトル検索情報があるもの優先）
+                # 1. ベクトル検索情報があるもの（類似度の高い順）
+                # 2. ベクトル検索情報がないもの（テキスト検索のみ）
                 results.sort(key=lambda x: (
+                    # ベクトル検索情報がある場合は類似度を優先、ない場合は-1
                     x.get('vector_similarity', -1) if x.get('vector_similarity') is not None else -1,
+                    # 2番目のキーとしてdoc_idで安定ソート
                     x.get('doc_id', '')
                 ), reverse=True)
         
