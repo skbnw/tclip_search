@@ -3961,12 +3961,27 @@ if st.session_state.selected_doc_id:
         target_chunk_filename = st.session_state[show_chunk_key]
         # フラグは保持（チャンクが表示された後にクリア）
     
-    with st.spinner("データを取得中..."):
-        full_master_data = get_master_data(_s3_client=s3_client, doc_id=doc_id)
-        chunks = get_chunk_data(_s3_client=s3_client, doc_id=doc_id)
-        images = list_images(_s3_client=s3_client, doc_id=doc_id)
-    
-    display_master_data(full_master_data, chunks, images, doc_id, target_chunk_filename)
+    try:
+        with st.spinner("データを取得中..."):
+            full_master_data = get_master_data(_s3_client=s3_client, doc_id=doc_id)
+            chunks = get_chunk_data(_s3_client=s3_client, doc_id=doc_id)
+            images = list_images(_s3_client=s3_client, doc_id=doc_id)
+        
+        # データが取得できた場合のみ表示
+        if full_master_data:
+            display_master_data(full_master_data, chunks, images, doc_id, target_chunk_filename)
+        else:
+            st.error(f"⚠️ データが見つかりませんでした（doc_id: {doc_id}）")
+            if st.button("← 戻る", use_container_width=True, key="back_button_error"):
+                st.session_state.selected_doc_id = None
+                st.rerun()
+    except Exception as e:
+        st.error(f"⚠️ エラーが発生しました: {str(e)}")
+        if is_admin():
+            st.exception(e)
+        if st.button("← 戻る", use_container_width=True, key="back_button_exception"):
+            st.session_state.selected_doc_id = None
+            st.rerun()
 elif st.session_state.search_results:
     st.markdown("---")
     st.subheader("検索結果")
