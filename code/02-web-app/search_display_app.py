@@ -923,7 +923,7 @@ with tab_detail:
                 help="全文テキストとチャンクテキストから検索します（テキストマッチング検索 + ベクトル検索）",
                 key="keyword_detail"
             )
-            # ベクトル検索のオプション（sentence-transformersが利用可能な場合のみ表示）
+            # ベクトル検索のオプション
             if SENTENCE_TRANSFORMERS_AVAILABLE:
                 use_vector_search = st.checkbox(
                     "ベクトル検索を使用",
@@ -932,6 +932,16 @@ with tab_detail:
                     key="use_vector_search_detail"
                 )
                 st.session_state.use_vector_search = use_vector_search
+            else:
+                # sentence-transformersが利用できない場合でも、チェックボックスを表示（無効化）
+                use_vector_search = st.checkbox(
+                    "ベクトル検索を使用（sentence-transformersが必要）",
+                    value=False,
+                    disabled=True,
+                    help="ベクトル検索を使用するには、sentence-transformersライブラリが必要です。インストール方法: pip install sentence-transformers",
+                    key="use_vector_search_detail_disabled"
+                )
+                st.session_state.use_vector_search = False
         
         # 検索ボタン
         search_button_detail = st.form_submit_button("🔍 検索", use_container_width=True)
@@ -1064,7 +1074,7 @@ with tab_performer:
                 help="全文テキストとチャンクテキストから検索します（テキストマッチング検索 + ベクトル検索）",
                 key="keyword_performer"
             )
-            # ベクトル検索のオプション（sentence-transformersが利用可能な場合のみ表示）
+            # ベクトル検索のオプション
             if SENTENCE_TRANSFORMERS_AVAILABLE:
                 use_vector_search = st.checkbox(
                     "ベクトル検索を使用",
@@ -1073,6 +1083,16 @@ with tab_performer:
                     key="use_vector_search_performer"
                 )
                 st.session_state.use_vector_search = use_vector_search
+            else:
+                # sentence-transformersが利用できない場合でも、チェックボックスを表示（無効化）
+                use_vector_search = st.checkbox(
+                    "ベクトル検索を使用（sentence-transformersが必要）",
+                    value=False,
+                    disabled=True,
+                    help="ベクトル検索を使用するには、sentence-transformersライブラリが必要です。インストール方法: pip install sentence-transformers",
+                    key="use_vector_search_performer_disabled"
+                )
+                st.session_state.use_vector_search = False
         
         # 検索ボタン
         search_button_performer = st.form_submit_button("🔍 検索", use_container_width=True)
