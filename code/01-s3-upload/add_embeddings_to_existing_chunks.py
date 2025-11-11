@@ -20,8 +20,10 @@ Date: 2025/01/XX
 import json
 import boto3
 import sys
+import os
 from typing import Dict, List, Optional
 from botocore.exceptions import ClientError
+from botocore.config import Config
 
 # Windows環境での文字エンコーディング対応
 if sys.platform == 'win32':
@@ -34,7 +36,66 @@ S3_BUCKET_NAME = "tclip-raw-data-2025"
 S3_REGION = "ap-northeast-1"  # アジアパシフィック (東京)
 S3_CHUNK_PREFIX = "rag/vector_chunks/"
 S3_MASTER_PREFIX = "rag/master_text/"
-S3_CLIENT = boto3.client('s3', region_name=S3_REGION)
+
+# S3クライアントの作成
+# 認証情報の優先順位: 環境変数 > ~/.aws/credentials > IAMロール
+def create_s3_client():
+    """S3クライアントを作成（認証情報を自動的に検出）"""
+    try:
+        # 1. 環境変数から認証情報を取得
+        access_key = os.getenv('AWS_ACCESS_KEY_ID')
+        secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        
+        # 2. 環境変数がない場合、認証情報ファイルから読み込む
+        if not access_key or not secret_key:
+            try:
+                import configparser
+                credentials_path = os.path.expanduser('~/.aws/credentials')
+                if os.path.exists(credentials_path):
+                    config = configparser.ConfigParser()
+                    config.read(credentials_path)
+                    if 'default' in config:
+                        access_key = config['default'].get('aws_access_key_id') or access_key
+                        secret_key = config['default'].get('aws_secret_access_key') or secret_key
+            except Exception as e:
+                print(f"[WARNING] 認証情報ファイルの読み込みエラー: {str(e)}")
+        
+        # 3. 認証情報が取得できた場合、明示的に渡す
+        if access_key and secret_key:
+            client = boto3.client(
+                's3',
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                region_name=S3_REGION
+            )
+        else:
+            # 4. 認証情報がない場合、boto3のデフォルトの検索順序に任せる
+            client = boto3.client('s3', region_name=S3_REGION)
+        
+        # 接続テスト（バケットの存在確認）
+        client.head_bucket(Bucket=S3_BUCKET_NAME)
+        return client
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code', '')
+        if error_code == '404':
+            print(f"[ERROR] バケット '{S3_BUCKET_NAME}' が見つかりません")
+        elif error_code == '403':
+            print(f"[ERROR] バケット '{S3_BUCKET_NAME}' へのアクセスが拒否されました")
+            print("[INFO] 認証情報の権限を確認してください")
+        else:
+            print(f"[ERROR] S3クライアントの作成に失敗しました: {str(e)}")
+        print("[INFO] AWS認証情報を確認してください:")
+        print("  - 環境変数: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY")
+        print(f"  - 認証情報ファイル: {os.path.expanduser('~/.aws/credentials')}")
+        return None
+    except Exception as e:
+        print(f"[ERROR] S3クライアントの作成に失敗しました: {str(e)}")
+        print("[INFO] AWS認証情報を確認してください（~/.aws/credentials または環境変数）")
+        return None
+
+S3_CLIENT = create_s3_client()
+if S3_CLIENT is None:
+    sys.exit(1)
 
 # ベクトル計算用のライブラリ
 try:
