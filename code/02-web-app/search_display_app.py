@@ -1369,6 +1369,94 @@ with tab_program_type:
 
 # 最新データタブ
 with tab_latest:
+    # 全クリアボタンを右寄せで表示
+    col_clear_left, col_clear_right = st.columns([7, 3])
+    with col_clear_right:
+        if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button_latest"):
+            # 検索条件をクリア
+            st.session_state.search_channel = "すべて"
+            st.session_state.search_date = None
+            st.session_state.search_time = None
+            st.session_state.search_program_name = ""
+            st.session_state.search_genre = ""
+            st.session_state.search_performer = ""
+            st.session_state.search_keyword = ""
+            st.session_state.search_results = []
+            st.session_state.selected_doc_id = None
+            st.session_state.current_page = 1
+            # 各タブの入力フィールドもクリア
+            # channel_dateはst.selectboxのkeyなので、削除
+            if 'channel_date' in st.session_state:
+                del st.session_state.channel_date
+            # date_inputはst.date_inputのkeyなので、削除
+            if 'date_input' in st.session_state:
+                del st.session_state.date_input
+            # time_inputはst.selectboxのkeyなので、削除
+            if 'time_input' in st.session_state:
+                del st.session_state.time_input
+            # channel_detailはst.selectboxのkeyなので、削除
+            if 'channel_detail' in st.session_state:
+                del st.session_state.channel_detail
+            # date_input_detailはst.date_inputのkeyなので、削除
+            if 'date_input_detail' in st.session_state:
+                del st.session_state.date_input_detail
+            # time_input_detailはst.selectboxのkeyなので、削除
+            if 'time_input_detail' in st.session_state:
+                del st.session_state.time_input_detail
+            if 'program_name_detail' in st.session_state:
+                st.session_state.program_name_detail = ""
+            # genre_detailはst.selectboxのkeyなので、削除
+            if 'genre_detail' in st.session_state:
+                del st.session_state.genre_detail
+            if 'keyword_detail' in st.session_state:
+                st.session_state.keyword_detail = ""
+            # channel_performerはst.selectboxのkeyなので、削除
+            if 'channel_performer' in st.session_state:
+                del st.session_state.channel_performer
+            if 'keyword_performer' in st.session_state:
+                st.session_state.keyword_performer = ""
+            # performer_performerはst.selectboxのkeyなので、削除
+            if 'performer_performer' in st.session_state:
+                del st.session_state.performer_performer
+            if 'use_vector_search' in st.session_state:
+                st.session_state.use_vector_search = False
+            # period_type、genre_program、start_date_input_program、end_date_input_program、selected_weekdaysはウィジェットのkeyなので、削除
+            if 'period_type' in st.session_state:
+                del st.session_state.period_type
+            if 'genre_program' in st.session_state:
+                del st.session_state.genre_program
+            if 'program_names_multiselect' in st.session_state:
+                st.session_state.program_names_multiselect = []
+            if 'start_date_input_program' in st.session_state:
+                del st.session_state.start_date_input_program
+            if 'end_date_input_program' in st.session_state:
+                del st.session_state.end_date_input_program
+            if 'selected_weekdays' in st.session_state:
+                del st.session_state.selected_weekdays
+            # テレビ局選択のチェックボックスをクリア
+            if 'channel_all_program' in st.session_state:
+                st.session_state.channel_all_program = True  # 「すべて」を選択状態にする
+            if 'channel_nhk_program' in st.session_state:
+                st.session_state.channel_nhk_program = False
+            if 'channel_nhk_etv_program' in st.session_state:
+                st.session_state.channel_nhk_etv_program = False
+            if 'channel_ntv_program' in st.session_state:
+                st.session_state.channel_ntv_program = False
+            if 'channel_tbs_program' in st.session_state:
+                st.session_state.channel_tbs_program = False
+            if 'channel_fuji_program' in st.session_state:
+                st.session_state.channel_fuji_program = False
+            if 'channel_tv_asahi_program' in st.session_state:
+                st.session_state.channel_tv_asahi_program = False
+            if 'channel_tv_tokyo_program' in st.session_state:
+                st.session_state.channel_tv_tokyo_program = False
+            # テレビ局選択の状態をリセット
+            if 'last_channels_program' in st.session_state:
+                st.session_state.last_channels_program = []
+            if 'last_genre_program' in st.session_state:
+                st.session_state.last_genre_program = "すべて"
+            st.rerun()
+    
     try:
         latest_programs = get_latest_programs(_s3_client=s3_client, limit=100)  # より多くのデータを取得
         if latest_programs and len(latest_programs) > 0:
