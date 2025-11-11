@@ -933,7 +933,7 @@ with tab_detail:
             st.session_state.search_channel = channel_detail
             st.session_state.search_date = selected_date_detail
             st.session_state.search_time = selected_time_detail.strftime("%H:%M") if selected_time_detail else None
-            st.session_state.search_program_name = program_name_search
+            st.session_state.search_program_name = ""  # 番組名は使用しない（キーワード検索に特化）
             st.session_state.search_genre = genre_search
             st.session_state.search_keyword = keyword
             # 検索時にページをリセット
