@@ -873,10 +873,22 @@ with tab_date:
                 del st.session_state.date_input
             if 'time_input' in st.session_state:
                 del st.session_state.time_input
+            if 'period_type_date' in st.session_state:
+                del st.session_state.period_type_date
+            if 'selected_weekdays_date' in st.session_state:
+                del st.session_state.selected_weekdays_date
+            if 'start_date_input_date' in st.session_state:
+                del st.session_state.start_date_input_date
+            if 'end_date_input_date' in st.session_state:
+                del st.session_state.end_date_input_date
             # ウィジェットのkeyを削除した後、検索条件も再設定（確実にリセット）
             st.session_state.search_channel = "すべて"
             st.session_state.search_date = None
             st.session_state.search_time = None
+            st.session_state.search_period_type_date = "すべて"
+            st.session_state.search_weekdays_date = []
+            st.session_state.search_start_date_date = None
+            st.session_state.search_end_date_date = None
             st.rerun()
 
 with tab_detail:
