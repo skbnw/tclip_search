@@ -2472,12 +2472,15 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
         tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画面", "📄 全文", "📑 チャンク"])
     
     with tab1:
-        # メタ情報をシンプルに表示
+        # メタ情報を表組形式で表示
         if metadata:
+            # データを準備
+            table_data = []
+            
             # 放送局
             channel = metadata.get('channel') or metadata.get('channel_code', '')
             if channel:
-                st.markdown(f"**放送局** {channel}")
+                table_data.append({"項目": "放送局", "値": channel})
             
             # 放送時間
             date_val = metadata.get('broadcast_date') or metadata.get('date')
@@ -2498,7 +2501,7 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
                 start_time_formatted = format_time_display_detail(start_time) if start_time else ''
                 end_time_formatted = format_time_display_detail(end_time) if end_time else ''
                 
-                # 放送時間を組み立て（テーブル形式で見やすく表示）
+                # 放送時間を組み立て
                 if date_display and (start_time_formatted or end_time_formatted):
                     time_range = ""
                     if start_time_formatted and end_time_formatted:
@@ -2508,20 +2511,68 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
                     elif end_time_formatted:
                         time_range = end_time_formatted
                     
-                    # テーブル形式で表示
-                    st.markdown(f"**放送時間** {date_display} {{ {time_range} }}")
+                    table_data.append({"項目": "放送時間", "値": f"{date_display} {{ {time_range} }}"})
                 elif date_display:
-                    st.markdown(f"**放送時間** {date_display}")
+                    table_data.append({"項目": "放送時間", "値": date_display})
             
             # 番組名
             program_name = metadata.get('program_name') or metadata.get('program_title') or metadata.get('master_title')
             if program_name:
-                st.markdown(f"**番組名** {program_name}")
+                table_data.append({"項目": "番組名", "値": program_name})
             
             # 番組詳細
             program_detail = metadata.get('program_detail')
             if program_detail:
-                st.markdown(f"**番組詳細** {program_detail}")
+                table_data.append({"項目": "番組詳細", "値": program_detail})
+            
+            # 出演者
+            performer_names = []
+            talents = metadata.get('talents', [])
+            if talents:
+                for talent in talents:
+                    if isinstance(talent, dict):
+                        talent_name = talent.get('name', '') or talent.get('talent_name', '')
+                    else:
+                        talent_name = str(talent)
+                    if talent_name and talent_name.strip():
+                        performer_names.append(talent_name.strip())
+            
+            # その他の出演者名フィールドもチェック
+            talent_fields = [
+                'talent_names', 'performers', 'performer_names',
+                'cast', 'cast_names', '出演者', '出演者名'
+            ]
+            for field in talent_fields:
+                field_value = metadata.get(field, '')
+                if field_value:
+                    if isinstance(field_value, str):
+                        # カンマ区切りの文字列の場合
+                        names = [n.strip() for n in field_value.split(',') if n.strip()]
+                        for name in names:
+                            if name not in performer_names:
+                                performer_names.append(name)
+                    elif isinstance(field_value, list):
+                        # リストの場合
+                        for name in field_value:
+                            if isinstance(name, dict):
+                                name_str = name.get('name', '') or name.get('talent_name', '')
+                            else:
+                                name_str = str(name)
+                            if name_str and name_str.strip() and name_str.strip() not in performer_names:
+                                performer_names.append(name_str.strip())
+            
+            if performer_names:
+                performer_display = " / ".join(performer_names)
+                table_data.append({"項目": "出演者", "値": performer_display})
+            
+            # 表組形式で表示
+            if table_data:
+                st.markdown("| 項目 | 値 |")
+                st.markdown("|------|-----|")
+                for row in table_data:
+                    # 値に改行が含まれる場合はHTMLで処理
+                    value = str(row['値']).replace('|', '\\|')  # パイプ文字をエスケープ
+                    st.markdown(f"| {row['項目']} | {value} |")
             
             # 全メタデータをJSON形式でダウンロード可能にする
             json_str = json.dumps(metadata, ensure_ascii=False, indent=2)
