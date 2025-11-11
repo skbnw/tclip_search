@@ -1294,22 +1294,19 @@ with tab_program_type:
             elif st.session_state.get("search_genre_program", "すべて") in genre_options:
                 initial_genre_index = genre_options.index(st.session_state.get("search_genre_program", "すべて"))
             
-            # ジャンルが変更されたときに番組名リストをリセットするコールバック
-            def on_genre_change():
-                if 'program_names_multiselect' in st.session_state:
-                    st.session_state.program_names_multiselect = []
-                # genre_programが存在する場合のみ設定
-                if 'genre_program' in st.session_state:
-                    st.session_state.last_genre_program = st.session_state.genre_program
-            
             genre_program = st.selectbox(
                 "ジャンル",
                 options=genre_options,
                 help="ジャンルを選択してください（選択すると番組名が絞り込まれます）",
                 key="genre_program",
-                index=initial_genre_index,
-                on_change=on_genre_change
+                index=initial_genre_index
             )
+            
+            # ジャンルが変更されたときに番組名リストをリセット（フォーム内ではon_changeが使えないため、手動でチェック）
+            if 'last_genre_program' not in st.session_state or st.session_state.last_genre_program != genre_program:
+                if 'program_names_multiselect' in st.session_state:
+                    st.session_state.program_names_multiselect = []
+                st.session_state.last_genre_program = genre_program
         
         with col_channel:
             # テレビ局選択（シンプルなselectbox、複数選択は削除）
