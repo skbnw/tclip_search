@@ -1402,8 +1402,12 @@ try:
                                     button_key = f"latest_{channel}_{doc_id}_{para_idx}_{col_idx}_{program_name_short}"
                                     if st.button(program_name_short, key=button_key, use_container_width=True):
                                         st.session_state.selected_doc_id = doc_id
+                                        # 検索結果にプログラムデータを追加（詳細表示のため）
                                         if 'search_results' not in st.session_state:
                                             st.session_state.search_results = []
+                                        # プログラムデータを検索結果に追加
+                                        if program not in st.session_state.search_results:
+                                            st.session_state.search_results = [program]
                                         st.rerun()
             
             # 内窓の終了タグ
