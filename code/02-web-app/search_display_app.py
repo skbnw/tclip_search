@@ -1370,8 +1370,9 @@ with tab_program_type:
                 del st.session_state.period_type
             if 'genre_program' in st.session_state:
                 del st.session_state.genre_program
+            # program_names_multiselectはst.multiselectのkeyなので、削除
             if 'program_names_multiselect' in st.session_state:
-                st.session_state.program_names_multiselect = []
+                del st.session_state.program_names_multiselect
             if 'start_date_input_program' in st.session_state:
                 del st.session_state.start_date_input_program
             if 'end_date_input_program' in st.session_state:
@@ -1581,8 +1582,9 @@ with tab_latest:
                     # channel_performerはst.selectboxのkeyなので、削除
                     if 'channel_performer' in st.session_state:
                         del st.session_state.channel_performer
+                    # keyword_performerはst.text_inputのkeyなので、削除
                     if 'keyword_performer' in st.session_state:
-                        st.session_state.keyword_performer = ""
+                        del st.session_state.keyword_performer
                     # performer_performerはst.selectboxのkeyなので、削除
                     if 'performer_performer' in st.session_state:
                         del st.session_state.performer_performer
@@ -1593,8 +1595,9 @@ with tab_latest:
                         del st.session_state.period_type
                     if 'genre_program' in st.session_state:
                         del st.session_state.genre_program
+                    # program_names_multiselectはst.multiselectのkeyなので、削除
                     if 'program_names_multiselect' in st.session_state:
-                        st.session_state.program_names_multiselect = []
+                        del st.session_state.program_names_multiselect
                     if 'start_date_input_program' in st.session_state:
                         del st.session_state.start_date_input_program
                     if 'end_date_input_program' in st.session_state:
