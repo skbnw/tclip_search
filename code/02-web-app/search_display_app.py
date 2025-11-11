@@ -1566,16 +1566,22 @@ if search_button_date:
     channel = st.session_state.get("channel_date", "すべて")
     selected_date = st.session_state.get("date_input", None)
     selected_time = st.session_state.get("time_input", None)
+    # 期間設定と曜日を取得
+    period_type_date = st.session_state.get("period_type_date", "すべて")
+    if period_type_date == "カスタム":
+        start_date_search = st.session_state.get("search_start_date_date", None)
+        end_date_search = st.session_state.get("search_end_date_date", None)
+    else:
+        start_date_search = None
+        end_date_search = None
+    weekdays_search = st.session_state.get("search_weekdays_date", [])
     # 他のタブの値は使用しない
     program_name_search = ""
     genre_search = ""
     performer_search = ""
     keyword = ""
     program_names_search = []
-    period_type_search = "すべて"
-    start_date_search = None
-    end_date_search = None
-    weekdays_search = []
+    period_type_search = period_type_date  # 日付タブの期間設定を使用
     genre_program_search = "すべて"
     channels_program_search = []
 elif search_button_detail:
