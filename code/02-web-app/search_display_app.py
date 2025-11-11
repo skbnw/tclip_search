@@ -2186,15 +2186,32 @@ def search_master_data_with_chunks(
                 _s3_client, filtered_masters, keyword, max_results=max_results
             )
             if vector_results:
-                # ベクトル検索の結果を追加（重複を避ける）
-                existing_doc_ids = {r.get('doc_id', '') for r in results}
+                # 既存の結果のdoc_idをマッピング
+                existing_results_by_doc_id = {r.get('doc_id', ''): r for r in results}
+                
+                # ベクトル検索の結果を処理
                 for vector_result in vector_results:
-                    if vector_result.get('doc_id', '') not in existing_doc_ids:
+                    doc_id = vector_result.get('doc_id', '')
+                    if not doc_id:
+                        continue
+                    
+                    # 既存の結果に存在する場合は、ベクトル検索の情報を追加
+                    if doc_id in existing_results_by_doc_id:
+                        existing_result = existing_results_by_doc_id[doc_id]
+                        # ベクトル検索の情報を追加
+                        existing_result['vector_similarity'] = vector_result.get('vector_similarity')
+                        existing_result['best_chunk'] = vector_result.get('best_chunk')
+                    else:
+                        # 新しい結果として追加
                         results.append(vector_result)
                         if len(results) >= max_results:
                             break
-                # ベクトル検索の結果を類似度でソート
-                results.sort(key=lambda x: x.get('vector_similarity', 0), reverse=True)
+                
+                # ベクトル検索の結果を類似度でソート（ベクトル検索情報があるもの優先）
+                results.sort(key=lambda x: (
+                    x.get('vector_similarity', 0) if x.get('vector_similarity') is not None else -1,
+                    x.get('doc_id', '')
+                ), reverse=True)
         
         progress_bar.empty()
         status_text.empty()
