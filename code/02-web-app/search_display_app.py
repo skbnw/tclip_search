@@ -737,8 +737,8 @@ with col_clear:
             st.session_state.last_genre_program = "すべて"
         st.rerun()
 
-# タブで検索条件を切り替え
-tab_date, tab_detail, tab_performer, tab_program_type = st.tabs(["📅 日付", "🔍 詳細検索", "👤 出演者", "📺 番組選択"])
+# タブで検索条件を切り替え（最新データを最初のタブに）
+tab_latest, tab_date, tab_detail, tab_performer, tab_program_type = st.tabs(["最新データ", "📅 日付", "🔍 詳細検索", "👤 出演者", "📺 番組選択"])
 
 # 検索条件の変数をセッションステートで管理（タブ間で共有）
 if 'search_channel' not in st.session_state:
@@ -1281,149 +1281,143 @@ with tab_program_type:
             # 検索時にページをリセット
             st.session_state.current_page = 1
 
+# 最新データタブ
+with tab_latest:
+    try:
+        latest_programs = get_latest_programs(_s3_client=s3_client, limit=100)  # より多くのデータを取得
+        if latest_programs and len(latest_programs) > 0:
+            # テレビ局ごとにグループ化
+            channel_groups = {}
+            channel_mapping = {
+                'NHK総合': ['NHK総合', 'NHK', 'NHKG'],
+                'NHK Eテレ': ['NHK Eテレ', 'NHK E', 'NHKE'],
+                '日本テレビ': ['日本テレビ', 'NTV', '日テレ'],
+                'TBS': ['TBS'],
+                'フジテレビ': ['フジテレビ', 'フジ', 'Fuji'],
+                'テレビ朝日': ['テレビ朝日', 'テレ朝', 'TV Asahi'],
+                'テレビ東京': ['テレビ東京', 'テレ東', 'TV Tokyo']
+            }
+            
+            # 主要6局のリスト（指定された順序）
+            main_channels = ['NHK総合', 'NHK Eテレ', '日本テレビ', 'TBS', 'フジテレビ', 'テレビ朝日', 'テレビ東京']
+            
+            for program in latest_programs:
+                metadata = program.get('metadata', {})
+                channel = metadata.get('channel', '') or metadata.get('放送局', '') or ''
+                
+                # チャンネル名を正規化してグループ化
+                matched_channel = None
+                for main_channel in main_channels:
+                    candidates = channel_mapping.get(main_channel, [main_channel])
+                    channel_lower = channel.lower()
+                    for candidate in candidates:
+                        if candidate.lower() in channel_lower or channel_lower in candidate.lower():
+                            matched_channel = main_channel
+                            break
+                    if matched_channel:
+                        break
+                
+                if matched_channel:
+                    if matched_channel not in channel_groups:
+                        channel_groups[matched_channel] = []
+                    channel_groups[matched_channel].append(program)
+            
+            # 各局最大3件まで
+            for channel in channel_groups:
+                channel_groups[channel] = channel_groups[channel][:3]
+            
+            if channel_groups:
+                # 内窓方式（スクロール可能な領域）で表示
+                st.markdown("""
+                <style>
+                .latest-data-scroll {
+                    max-height: 400px;
+                    overflow-y: auto;
+                    padding: 10px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 5px;
+                    background-color: #fafafa;
+                }
+                </style>
+                <div class="latest-data-scroll">
+                """, unsafe_allow_html=True)
+                
+                # 指定された順序で3つの段落に分割
+                # 段落1: NHK総合、日本テレビ
+                # 段落2: TBS、テレビ朝日
+                # 段落3: フジテレビ、テレビ東京
+                paragraphs = [
+                    ['NHK総合', '日本テレビ'],
+                    ['TBS', 'テレビ朝日'],
+                    ['フジテレビ', 'テレビ東京']
+                ]
+                
+                for para_idx, paragraph_channels in enumerate(paragraphs):
+                    if para_idx > 0:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # 各段落は2列
+                    cols = st.columns(2)
+                    for col_idx, col in enumerate(cols):
+                        if col_idx < len(paragraph_channels):
+                            channel = paragraph_channels[col_idx]
+                            # チャンネルが存在する場合のみ表示
+                            if channel not in channel_groups or len(channel_groups[channel]) == 0:
+                                continue
+                            programs = channel_groups[channel]
+                            
+                            with col:
+                                st.markdown(f"**📡 {channel}**")
+                                
+                                for program in programs:
+                                    metadata = program.get('metadata', {})
+                                    doc_id = program.get('doc_id', '')
+                                    program_name = metadata.get('program_name', '') or metadata.get('program_title', '') or metadata.get('title', '') or '番組名不明'
+                                    start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', '')) or ''
+                                    
+                                    # 時間を整形
+                                    time_display = ''
+                                    if start_time and len(start_time) >= 12 and start_time[:12].isdigit():
+                                        # YYYYMMDDHHMM形式
+                                        hour = start_time[8:10]
+                                        minute = start_time[10:12]
+                                        time_display = f"{hour}:{minute}"
+                                    elif start_time and len(start_time) >= 8 and start_time[:8].isdigit():
+                                        # YYYYMMDD形式（時間なし）
+                                        time_display = ""
+                                    
+                                    # 番組名を12文字まで表示
+                                    program_name_short = program_name[:12] + "..." if len(program_name) > 12 else program_name
+                                    
+                                    # 左寄せで表示（時間と番組名を横並び、コンパクトに）
+                                    col_time, col_name = st.columns([1, 5])
+                                    with col_time:
+                                        st.markdown(f"**{time_display}**", help="放送時間")
+                                    with col_name:
+                                        button_key = f"latest_{channel}_{doc_id}_{para_idx}_{col_idx}_{program_name_short}"
+                                        if st.button(program_name_short, key=button_key, use_container_width=True):
+                                            st.session_state.selected_doc_id = doc_id
+                                            # 検索結果にプログラムデータを追加（詳細表示のため）
+                                            if 'search_results' not in st.session_state:
+                                                st.session_state.search_results = []
+                                            # プログラムデータを検索結果に追加
+                                            if program not in st.session_state.search_results:
+                                                st.session_state.search_results = [program]
+                                            st.rerun()
+                
+                # 内窓の終了タグ
+                st.markdown("</div>", unsafe_allow_html=True)
+    except Exception as e:
+        # エラーが発生した場合は表示しない（サイレントに失敗）
+        # デバッグ用（管理者のみ表示）
+        if is_admin():
+            import traceback
+            st.error(f"最新データの表示エラー: {str(e)}")
+            with st.expander("エラー詳細"):
+                st.code(traceback.format_exc())
+
 # 検索ボタンの状態を統合
 search_button = search_button_date or search_button_detail or search_button_performer or search_button_program_type
-
-# 最新データを表示（検索条件の下）
-st.markdown("---")
-try:
-    latest_programs = get_latest_programs(_s3_client=s3_client, limit=100)  # より多くのデータを取得
-    if latest_programs and len(latest_programs) > 0:
-        # テレビ局ごとにグループ化
-        channel_groups = {}
-        channel_mapping = {
-            'NHK総合': ['NHK総合', 'NHK', 'NHKG'],
-            'NHK Eテレ': ['NHK Eテレ', 'NHK E', 'NHKE'],
-            '日本テレビ': ['日本テレビ', 'NTV', '日テレ'],
-            'TBS': ['TBS'],
-            'フジテレビ': ['フジテレビ', 'フジ', 'Fuji'],
-            'テレビ朝日': ['テレビ朝日', 'テレ朝', 'TV Asahi'],
-            'テレビ東京': ['テレビ東京', 'テレ東', 'TV Tokyo']
-        }
-        
-        # 主要6局のリスト（指定された順序）
-        main_channels = ['NHK総合', 'NHK Eテレ', '日本テレビ', 'TBS', 'フジテレビ', 'テレビ朝日', 'テレビ東京']
-        
-        for program in latest_programs:
-            metadata = program.get('metadata', {})
-            channel = metadata.get('channel', '') or metadata.get('放送局', '') or ''
-            
-            # チャンネル名を正規化してグループ化
-            matched_channel = None
-            for main_channel in main_channels:
-                candidates = channel_mapping.get(main_channel, [main_channel])
-                channel_lower = channel.lower()
-                for candidate in candidates:
-                    if candidate.lower() in channel_lower or channel_lower in candidate.lower():
-                        matched_channel = main_channel
-                        break
-                if matched_channel:
-                    break
-            
-            if matched_channel:
-                if matched_channel not in channel_groups:
-                    channel_groups[matched_channel] = []
-                channel_groups[matched_channel].append(program)
-        
-        # 各局最大3件まで
-        for channel in channel_groups:
-            channel_groups[channel] = channel_groups[channel][:3]
-        
-        if channel_groups:
-            st.subheader("最新データ")
-            
-            # 内窓方式（スクロール可能な領域）で表示
-            st.markdown("""
-            <style>
-            .latest-data-scroll {
-                max-height: 400px;
-                overflow-y: auto;
-                padding: 10px;
-                border: 1px solid #e0e0e0;
-                border-radius: 5px;
-                background-color: #fafafa;
-            }
-            </style>
-            <div class="latest-data-scroll">
-            """, unsafe_allow_html=True)
-            
-            # 指定された順序で3つの段落に分割
-            # 段落1: NHK総合、日本テレビ
-            # 段落2: TBS、テレビ朝日
-            # 段落3: フジテレビ、テレビ東京
-            paragraphs = [
-                ['NHK総合', '日本テレビ'],
-                ['TBS', 'テレビ朝日'],
-                ['フジテレビ', 'テレビ東京']
-            ]
-            
-            for para_idx, paragraph_channels in enumerate(paragraphs):
-                if para_idx > 0:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                
-                # 各段落は2列
-                cols = st.columns(2)
-                for col_idx, col in enumerate(cols):
-                    if col_idx < len(paragraph_channels):
-                        channel = paragraph_channels[col_idx]
-                        # チャンネルが存在する場合のみ表示
-                        if channel not in channel_groups or len(channel_groups[channel]) == 0:
-                            continue
-                        programs = channel_groups[channel]
-                        
-                        with col:
-                            st.markdown(f"**📡 {channel}**")
-                            
-                            for program in programs:
-                                metadata = program.get('metadata', {})
-                                doc_id = program.get('doc_id', '')
-                                program_name = metadata.get('program_name', '') or metadata.get('program_title', '') or metadata.get('title', '') or '番組名不明'
-                                start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', '')) or ''
-                                
-                                # 時間を整形
-                                time_display = ''
-                                if start_time and len(start_time) >= 12 and start_time[:12].isdigit():
-                                    # YYYYMMDDHHMM形式
-                                    hour = start_time[8:10]
-                                    minute = start_time[10:12]
-                                    time_display = f"{hour}:{minute}"
-                                elif start_time and len(start_time) >= 8 and start_time[:8].isdigit():
-                                    # YYYYMMDD形式（時間なし）
-                                    time_display = ""
-                                
-                                # 番組名を12文字まで表示
-                                program_name_short = program_name[:12] + "..." if len(program_name) > 12 else program_name
-                                
-                                # 左寄せで表示（時間と番組名を横並び、コンパクトに）
-                                col_time, col_name = st.columns([1, 5])
-                                with col_time:
-                                    st.markdown(f"**{time_display}**", help="放送時間")
-                                with col_name:
-                                    button_key = f"latest_{channel}_{doc_id}_{para_idx}_{col_idx}_{program_name_short}"
-                                    if st.button(program_name_short, key=button_key, use_container_width=True):
-                                        st.session_state.selected_doc_id = doc_id
-                                        # 検索結果にプログラムデータを追加（詳細表示のため）
-                                        if 'search_results' not in st.session_state:
-                                            st.session_state.search_results = []
-                                        # プログラムデータを検索結果に追加
-                                        if program not in st.session_state.search_results:
-                                            st.session_state.search_results = [program]
-                                        st.rerun()
-            
-            # 内窓の終了タグ
-            st.markdown("</div>", unsafe_allow_html=True)
-except Exception as e:
-    # エラーが発生した場合は表示しない（サイレントに失敗）
-    # ただし、その後の処理は続行する
-    # デバッグ用（管理者のみ表示）
-    if is_admin():
-        import traceback
-        st.error(f"最新データの表示エラー: {str(e)}")
-        with st.expander("エラー詳細"):
-            st.code(traceback.format_exc())
-    pass
-
-st.markdown("---")
 
 # 検索条件を取得（検索ボタンを押したタブの設定のみを使用）
 if search_button_date:
