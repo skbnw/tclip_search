@@ -1101,17 +1101,15 @@ with tab_performer:
             st.session_state.selected_doc_id = None
             st.session_state.current_page = 1
             # 各タブの入力フィールドもクリア
-            # channel_performerはst.selectboxのkeyなので、削除してから再設定
+            # channel_performerはst.selectboxのkeyなので、削除
             if 'channel_performer' in st.session_state:
                 del st.session_state.channel_performer
-            if 'keyword_performer' in st.session_state:
-                st.session_state.keyword_performer = ""
-            # performer_performerはst.selectboxのkeyなので、削除
-            if 'performer_performer' in st.session_state:
-                del st.session_state.performer_performer
             # keyword_performerはst.text_inputのkeyなので、削除
             if 'keyword_performer' in st.session_state:
                 del st.session_state.keyword_performer
+            # performer_performerはst.selectboxのkeyなので、削除
+            if 'performer_performer' in st.session_state:
+                del st.session_state.performer_performer
             if 'use_vector_search' in st.session_state:
                 st.session_state.use_vector_search = False
             # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
