@@ -735,7 +735,7 @@ with col_clear:
     st.markdown(f"<div style='text-align: right; padding-top: 0.5rem;'><small>{jst_now.strftime('%Y-%m-%d %H:%M')} {weekday_en}</small></div>", unsafe_allow_html=True)
 
 # タブで検索条件を切り替え（最新データを最初のタブに）
-tab_latest, tab_date, tab_detail, tab_performer, tab_program_type = st.tabs(["最新 📺", "📅 日付", "🔍 詳細", "👤 出演", "📺 番組"])
+tab_latest, tab_date, tab_detail, tab_performer, tab_program_type = st.tabs(["📺 最新", "📅 日付", "🔍 詳細", "👤 出演", "📺 番組"])
 
 # 検索条件の変数をセッションステートで管理（タブ間で共有）
 if 'search_channel' not in st.session_state:
@@ -2467,9 +2467,9 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
     # 画像から遷移した場合はチャンクタブを最初に表示
     if target_chunk_filename:
         # チャンクタブを最初に表示（タブの順序を変更）
-        tab5, tab1, tab2, tab3, tab4 = st.tabs(["📑 チャンク", "📋 番組メタデータ", "🤖 AI要約", "🖼️ 画面スクショ", "📄 全文"])
+        tab5, tab1, tab2, tab3, tab4 = st.tabs(["📑 チャンク", "📋 番組メタデータ", "🤖 AI要約", "🖼️ 画面", "📄 全文"])
     else:
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画面スクショ", "📄 全文", "📑 チャンク"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画面", "📄 全文", "📑 チャンク"])
     
     with tab1:
         # メタ情報をシンプルに表示
@@ -2498,14 +2498,18 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
                 start_time_formatted = format_time_display_detail(start_time) if start_time else ''
                 end_time_formatted = format_time_display_detail(end_time) if end_time else ''
                 
-                # 放送時間を組み立て
+                # 放送時間を組み立て（テーブル形式で見やすく表示）
                 if date_display and (start_time_formatted or end_time_formatted):
-                    time_display = f"{date_display}"
-                    if start_time_formatted:
-                        time_display += f" {start_time_formatted}"
-                    if end_time_formatted:
-                        time_display += f" - {end_time_formatted}"
-                    st.markdown(f"**放送時間** {time_display}")
+                    time_range = ""
+                    if start_time_formatted and end_time_formatted:
+                        time_range = f"{start_time_formatted} - {end_time_formatted}"
+                    elif start_time_formatted:
+                        time_range = start_time_formatted
+                    elif end_time_formatted:
+                        time_range = end_time_formatted
+                    
+                    # テーブル形式で表示
+                    st.markdown(f"**放送時間** {date_display} {{ {time_range} }}")
                 elif date_display:
                     st.markdown(f"**放送時間** {date_display}")
             
@@ -2607,7 +2611,6 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
             st.info("メタデータがありません")
     
     with tab2:
-        st.subheader("AI要約")
         
         # Groq APIを使用して番組の概要を生成
         if metadata:
@@ -2760,6 +2763,8 @@ api_key = "YOUR_GROQ_API_KEY"
                     # 要約を表示
                     st.markdown("### 番組概要")
                     st.markdown(summary)
+                    # AI要約の注意書きを追加
+                    st.markdown('<div style="color: #666; font-size: 0.85em; margin-top: 1em;">この要約はAIで自動生成しており、表現や事実関係が正確でない場合があります。ご注意ください。</div>', unsafe_allow_html=True)
                 
             except ImportError:
                 st.error("⚠️ Groqパッケージがインストールされていません。")
@@ -2770,9 +2775,8 @@ api_key = "YOUR_GROQ_API_KEY"
             st.info("メタデータがありません")
     
     with tab3:
-        st.subheader("画面スクショ")
         if images:
-            st.info(f"画面スクショ数: {len(images)}")
+            st.info(f"画面数: {len(images)}")
             # グリッド表示（3列）
             cols = st.columns(3)
             for idx, img_data in enumerate(images):
@@ -2799,12 +2803,11 @@ api_key = "YOUR_GROQ_API_KEY"
                                 st.session_state[f"show_chunk_for_{doc_id}"] = filename
                                 st.rerun()
                     except Exception as e:
-                        st.error(f"画面スクショの読み込みエラー: {str(e)}")
+                        st.error(f"画面の読み込みエラー: {str(e)}")
         else:
-            st.info("画面スクショがありません")
+            st.info("画面がありません")
     
     with tab4:
-        st.subheader("全文テキスト")
         if 'full_text' in master_data and master_data['full_text']:
             # 時間表示を削除（[HH:MM:SS.mmm-HH:MM:SS.mmm]形式）
             full_text = master_data['full_text']
@@ -2898,20 +2901,20 @@ api_key = "YOUR_GROQ_API_KEY"
             st.info("全文テキストがありません")
     
     with tab5:
-        st.subheader("チャンク")
-        
         # audio再生プレーヤーを表示（チャンクセクション全体の上）
         audio_urls = master_data.get('audio_urls', [])
         
-        # デバッグ情報（開発用）
+        # デバッグ情報（管理者のみ表示）
         if not audio_urls or len(audio_urls) == 0:
             # audio_urlsが存在しない場合の情報を表示
             st.info(f"ℹ️ 音声ファイルが見つかりませんでした（doc_id: {doc_id}）。v1.4でアップロードしたデータか確認してください。")
-            # マスターデータのキーを確認
-            with st.expander("デバッグ情報（クリックして展開）"):
-                st.write(f"マスターデータのキー: {list(master_data.keys())}")
-                st.write(f"audio_urlsの値: {audio_urls}")
-                st.write(f"audio_urlsの型: {type(audio_urls)}")
+            # 管理者のみデバッグ情報を表示
+            if is_admin():
+                with st.expander("デバッグ情報（クリックして展開）"):
+                    st.write(f"マスターデータのキー: {list(master_data.keys())}")
+                    st.write(f"audio_urlsの値: {audio_urls}")
+                    st.write(f"audio_urlsの型: {type(audio_urls)}")
+                    st.write(f"doc_id: {doc_id}")
         
         if audio_urls and len(audio_urls) > 0:
             st.markdown("### 🎵 音声ファイル")
@@ -3077,7 +3080,7 @@ api_key = "YOUR_GROQ_API_KEY"
                                     ExpiresIn=3600
                                 )
                                 # 画像サイズを調整（最大幅を指定）
-                                st.image(image_url, caption=f"画面スクショ: {image_filename}", width=400)
+                                st.image(image_url, caption=f"画面: {image_filename}", width=400)
                             except Exception as e:
                                 # 画像が見つからない場合はスキップ
                                 pass
