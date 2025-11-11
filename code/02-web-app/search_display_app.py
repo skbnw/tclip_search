@@ -3874,7 +3874,7 @@ elif st.session_state.search_results:
             keyword_lower = keyword.strip().lower()
             snippets = []
             
-            # 全文テキストから検索
+            # 全文テキストから検索（「全文:」プレフィックスは削除、文字数も3割減）
             full_text = master.get('full_text', '')
             if full_text:
                 full_text_str = str(full_text)
@@ -3883,9 +3883,9 @@ elif st.session_state.search_results:
                     # キーワードの位置を探す
                     pos = full_text_lower.find(keyword_lower)
                     if pos >= 0:
-                        # 前後50文字を取得
-                        start = max(0, pos - 50)
-                        end = min(len(full_text_str), pos + len(keyword_lower) + 50)
+                        # 前後35文字を取得（50文字から3割減）
+                        start = max(0, pos - 35)
+                        end = min(len(full_text_str), pos + len(keyword_lower) + 35)
                         snippet = full_text_str[start:end]
                         # キーワードをハイライト（大文字小文字を区別しない）
                         snippet_highlighted = re.sub(
@@ -3894,7 +3894,7 @@ elif st.session_state.search_results:
                             snippet,
                             flags=re.IGNORECASE
                         )
-                        snippets.append(f"全文: ...{snippet_highlighted}...")
+                        snippets.append(f"...{snippet_highlighted}...")
             
             # メタデータから検索
             metadata = master.get('metadata', {})
@@ -3929,29 +3929,21 @@ elif st.session_state.search_results:
                 keyword = st.session_state.get("search_keyword", "")
                 keyword_snippets = get_keyword_snippet(master, keyword) if keyword else None
                 
-                # カード形式で表示
-                col1, col2, col3, col4, col5, col6 = st.columns([0.3, 1.2, 1.5, 1.5, 2, 0.8])
-                
-                with col1:
-                    st.write(f"**{row['No.']}**")
-                
-                with col2:
-                    st.write(f"📅 {row['放送日時']}")
-                
-                with col3:
-                    st.write(f"🕐 {row['時間']}")
-                
-                with col4:
-                    st.write(f"📺 {row['放送局']}")
-                
-                with col5:
-                    st.write(f"📺 {row['番組名']}")
-                
-                with col6:
-                    # 詳細ボタン（新しいタブで開くリンク風）
+                # 2行形式で表示
+                # 1行目: 📅 2025-10-23　🕐 14:50 - 15:00　📺 1 NHK総合1..
+                col1_line1, col2_line1, col3_line1 = st.columns([1, 1, 0.3])
+                with col1_line1:
+                    st.markdown(f"📅 {row['放送日時']}　🕐 {row['時間']}　📺 {row['放送局']}")
+                with col2_line1:
+                    pass
+                with col3_line1:
+                    # 詳細ボタン
                     if st.button(f"詳細", key=f"detail_{row['doc_id']}", use_container_width=True):
                         st.session_state.selected_doc_id = row['doc_id']
                         st.rerun()
+                
+                # 2行目: 📺 時論公論 朝鮮労働党創立80年 北朝鮮の"現在地"🈑🈞
+                st.markdown(f"📺 {row['番組名']}")
                 
                 # キーワードマッチのスニペットを表示
                 match_info = []
@@ -3966,10 +3958,24 @@ elif st.session_state.search_results:
                 if vector_similarity is not None and best_chunk:
                     chunk_text = best_chunk.get('text', '')
                     if chunk_text:
-                        # チャンクテキストを表示（最大200文字）
-                        chunk_preview = chunk_text[:200] + "..." if len(chunk_text) > 200 else chunk_text
+                        # チャンクテキストを表示（最大140文字、3割減）
+                        chunk_preview = chunk_text[:140] + "..." if len(chunk_text) > 140 else chunk_text
                         similarity_percent = f"{vector_similarity * 100:.1f}%"
                         match_info.append(("ベクトル検索", [f"類似度: {similarity_percent}", f"チャンク: {chunk_preview}"]))
+                
+                # デバッグ情報（管理者のみ、ベクトル検索が有効な場合のみ）
+                if is_admin() and keyword and st.session_state.get('use_vector_search', False):
+                    debug_info = []
+                    debug_info.append(f"vector_similarity: {vector_similarity}")
+                    debug_info.append(f"best_chunk exists: {best_chunk is not None}")
+                    if best_chunk:
+                        debug_info.append(f"best_chunk keys: {list(best_chunk.keys())}")
+                        debug_info.append(f"best_chunk text length: {len(best_chunk.get('text', ''))}")
+                    debug_info.append(f"use_vector_search: {st.session_state.get('use_vector_search', False)}")
+                    debug_info.append(f"SENTENCE_TRANSFORMERS_AVAILABLE: {SENTENCE_TRANSFORMERS_AVAILABLE}")
+                    debug_info.append(f"master keys: {list(master.keys())}")
+                    with st.expander(f"🔧 デバッグ情報 (doc_id: {row['doc_id']})"):
+                        st.text("\n".join(debug_info))
                 
                 # マッチ情報を表示
                 if match_info:
