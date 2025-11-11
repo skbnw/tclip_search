@@ -793,8 +793,9 @@ with tab_date:
             st.session_state.selected_doc_id = None
             st.session_state.current_page = 1
             # 各タブの入力フィールドもクリア
+            # channel_dateはst.selectboxのkeyなので、削除してから再設定
             if 'channel_date' in st.session_state:
-                st.session_state.channel_date = "すべて"
+                del st.session_state.channel_date
             if 'date_input' in st.session_state:
                 st.session_state.date_input = None
             if 'time_input' in st.session_state:
@@ -944,16 +945,18 @@ with tab_detail:
             st.session_state.selected_doc_id = None
             st.session_state.current_page = 1
             # 各タブの入力フィールドもクリア
+            # channel_detailはst.selectboxのkeyなので、削除してから再設定
             if 'channel_detail' in st.session_state:
-                st.session_state.channel_detail = "すべて"
+                del st.session_state.channel_detail
             if 'date_input_detail' in st.session_state:
                 st.session_state.date_input_detail = None
             if 'time_input_detail' in st.session_state:
                 st.session_state.time_input_detail = None
             if 'program_name_detail' in st.session_state:
                 st.session_state.program_name_detail = ""
+            # genre_detailはst.selectboxのkeyなので、削除してから再設定
             if 'genre_detail' in st.session_state:
-                st.session_state.genre_detail = "すべて"
+                del st.session_state.genre_detail
             if 'keyword_detail' in st.session_state:
                 st.session_state.keyword_detail = ""
             if 'use_vector_search' in st.session_state:
@@ -1068,12 +1071,14 @@ with tab_performer:
             st.session_state.selected_doc_id = None
             st.session_state.current_page = 1
             # 各タブの入力フィールドもクリア
+            # channel_performerはst.selectboxのkeyなので、削除してから再設定
             if 'channel_performer' in st.session_state:
-                st.session_state.channel_performer = "すべて"
+                del st.session_state.channel_performer
             if 'keyword_performer' in st.session_state:
                 st.session_state.keyword_performer = ""
+            # performer_performerはst.selectboxのkeyなので、削除してから再設定
             if 'performer_performer' in st.session_state:
-                st.session_state.performer_performer = ""
+                del st.session_state.performer_performer
             if 'use_vector_search' in st.session_state:
                 st.session_state.use_vector_search = False
             st.rerun()
