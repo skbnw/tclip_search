@@ -1549,27 +1549,13 @@ with tab_latest:
                     if 'selected_weekdays' in st.session_state:
                         del st.session_state.selected_weekdays
                     # テレビ局選択のチェックボックスをクリア
-                    if 'channel_all_program' in st.session_state:
-                        st.session_state.channel_all_program = True  # 「すべて」を選択状態にする
-                    if 'channel_nhk_program' in st.session_state:
-                        st.session_state.channel_nhk_program = False
-                    if 'channel_nhk_etv_program' in st.session_state:
-                        st.session_state.channel_nhk_etv_program = False
-                    if 'channel_ntv_program' in st.session_state:
-                        st.session_state.channel_ntv_program = False
-                    if 'channel_tbs_program' in st.session_state:
-                        st.session_state.channel_tbs_program = False
-                    if 'channel_fuji_program' in st.session_state:
-                        st.session_state.channel_fuji_program = False
-                    if 'channel_tv_asahi_program' in st.session_state:
-                        st.session_state.channel_tv_asahi_program = False
-                    if 'channel_tv_tokyo_program' in st.session_state:
-                        st.session_state.channel_tv_tokyo_program = False
+                    if 'channel_program_single' in st.session_state:
+                        del st.session_state.channel_program_single
                     # テレビ局選択の状態をリセット
                     if 'last_channels_program' in st.session_state:
                         st.session_state.last_channels_program = []
                     if 'last_genre_program' in st.session_state:
-                        st.session_state.last_genre_program = "すべて"
+                        del st.session_state.last_genre_program
                     # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
                     st.session_state.search_channel = "すべて"
                     st.session_state.search_date = None
