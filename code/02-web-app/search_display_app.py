@@ -634,7 +634,7 @@ def find_nearest_time(target_time: time, time_list: List[str]) -> Optional[str]:
 # 検索フォーム
 col_title, col_clear = st.columns([7, 3])
 with col_title:
-    st.subheader("検索条件")
+    pass  # タイトルは不要
 with col_clear:
     # クリアボタンを表示（下側に配置、右寄せ）
     st.markdown("<div style='text-align: right; padding-top: 1.5rem;'>", unsafe_allow_html=True)
