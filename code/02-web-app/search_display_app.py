@@ -265,8 +265,6 @@ def get_latest_programs(_s3_client, limit: int = 5) -> List[Dict]:
     except Exception as e:
         return []
 
-st.markdown("---")
-
 # 管理者チェック関数
 def is_admin() -> bool:
     """管理者かどうかをチェック（Streamlit secretsまたは環境変数から取得）"""
@@ -638,13 +636,8 @@ col_title, col_clear = st.columns([7, 3])
 with col_title:
     st.subheader("検索条件")
 with col_clear:
-    # 現在時刻を右寄せで表示
-    jst_now = get_jst_now()
-    # 曜日の英語表記
-    weekday_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    weekday_en = weekday_names[jst_now.weekday()]
-    st.markdown(f"<div style='text-align: right; padding-bottom: 0.5rem;'><small>現在時刻: {jst_now.strftime('%Y-%m-%d %H:%M')} {weekday_en}</small></div>", unsafe_allow_html=True)
-    # クリアボタンを表示（上部に配置）
+    # クリアボタンを表示（下側に配置、右寄せ）
+    st.markdown("<div style='text-align: right; padding-top: 1.5rem;'>", unsafe_allow_html=True)
     if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button"):
         # 検索条件をクリア
         st.session_state.search_channel = "すべて"
@@ -734,6 +727,12 @@ with col_clear:
         if 'last_genre_program' in st.session_state:
             st.session_state.last_genre_program = "すべて"
         st.rerun()
+    # 現在時刻をボタンの下に表示（右寄せ）
+    jst_now = get_jst_now()
+    # 曜日の英語表記
+    weekday_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    weekday_en = weekday_names[jst_now.weekday()]
+    st.markdown(f"<div style='text-align: right; padding-top: 0.5rem;'><small>{jst_now.strftime('%Y-%m-%d %H:%M')} {weekday_en}</small></div>", unsafe_allow_html=True)
 
 # タブで検索条件を切り替え（最新データを最初のタブに）
 tab_latest, tab_date, tab_detail, tab_performer, tab_program_type = st.tabs(["最新 📺", "📅 日付", "🔍 詳細", "👤 出演", "📺 番組"])
