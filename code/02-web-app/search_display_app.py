@@ -1279,7 +1279,7 @@ search_button = search_button_date or search_button_detail or search_button_perf
 st.markdown("---")
 try:
     latest_programs = get_latest_programs(_s3_client=s3_client, limit=6)
-    if latest_programs:
+    if latest_programs and len(latest_programs) > 0:
         # 画像があるデータのみフィルタリング（画像URLも一緒に保存）
         programs_with_images = []
         for program in latest_programs:
@@ -1295,7 +1295,7 @@ try:
                     # 個別のエラーは無視して続行
                     continue
         
-        if programs_with_images:
+        if programs_with_images and len(programs_with_images) > 0:
             st.subheader("📺 最新データ")
             col1, col2 = st.columns([3, 1])
             with col1:
@@ -1318,6 +1318,10 @@ try:
                                 metadata = program.get('metadata', {})
                                 doc_id = program.get('doc_id', '')
                                 thumbnail_url = program.get('thumbnail_url', None)
+                                
+                                if not thumbnail_url:
+                                    continue
+                                
                                 program_name = metadata.get('program_name', '') or metadata.get('program_title', '') or metadata.get('title', '') or '番組名不明'
                                 channel = metadata.get('channel', '') or metadata.get('放送局', '') or '放送局不明'
                                 start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', '')) or ''
@@ -1339,32 +1343,33 @@ try:
                                     day = start_time[6:8]
                                     time_display = f"{year}年{month}月{day}日"
                                 
-                                # 画像がある場合のみ表示
-                                if thumbnail_url:
-                                    # カード形式で表示
-                                    with st.container():
-                                        # サムネイル画像を表示
-                                        st.image(thumbnail_url, use_container_width=True, caption=program_name)
-                                        
-                                        # 番組情報を表示
-                                        st.markdown(f"**{program_name}**")
-                                        st.caption(f"📡 {channel}")
-                                        st.caption(f"🕐 {time_display}")
-                                        
-                                        # 詳細を見るボタン
-                                        if st.button("詳細を見る", key=f"latest_program_{doc_id}", use_container_width=True):
-                                            st.session_state.selected_doc_id = doc_id
-                                            # 検索結果に含めるために、プログラムデータを追加
-                                            if 'search_results' not in st.session_state:
-                                                st.session_state.search_results = []
-                                            # 既存の検索結果をクリアせず、選択されたdoc_idを保持
-                                            st.rerun()
+                                # カード形式で表示
+                                with st.container():
+                                    # サムネイル画像を表示
+                                    st.image(thumbnail_url, use_container_width=True, caption=program_name)
+                                    
+                                    # 番組情報を表示
+                                    st.markdown(f"**{program_name}**")
+                                    st.caption(f"📡 {channel}")
+                                    st.caption(f"🕐 {time_display}")
+                                    
+                                    # 詳細を見るボタン
+                                    if st.button("詳細を見る", key=f"latest_program_{doc_id}", use_container_width=True):
+                                        st.session_state.selected_doc_id = doc_id
+                                        # 検索結果に含めるために、プログラムデータを追加
+                                        if 'search_results' not in st.session_state:
+                                            st.session_state.search_results = []
+                                        # 既存の検索結果をクリアせず、選択されたdoc_idを保持
+                                        st.rerun()
                             except Exception as e:
                                 # 個別のカード表示エラーは無視して続行
                                 continue
 except Exception as e:
     # エラーが発生した場合は表示しない（サイレントに失敗）
     # ただし、その後の処理は続行する
+    # デバッグ用（管理者のみ表示）
+    if is_admin():
+        st.error(f"最新データの表示エラー: {str(e)}")
     pass
 
 st.markdown("---")
