@@ -1627,6 +1627,10 @@ with tab_latest:
                     st.session_state.search_channel = "すべて"
                     st.session_state.search_date = None
                     st.session_state.search_time = None
+                    st.session_state.search_program_name = ""
+                    st.session_state.search_genre = ""
+                    st.session_state.search_performer = ""
+                    st.session_state.search_keyword = ""
                     st.rerun()
     except Exception as e:
         # エラーが発生した場合は表示しない（サイレントに失敗）
