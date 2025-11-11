@@ -814,6 +814,10 @@ with tab_date:
             st.session_state.search_channel = "すべて"
             st.session_state.search_date = None
             st.session_state.search_time = None
+            st.session_state.search_program_name = ""
+            st.session_state.search_genre = ""
+            st.session_state.search_performer = ""
+            st.session_state.search_keyword = ""
             st.rerun()
 
 with tab_detail:
@@ -968,19 +972,25 @@ with tab_detail:
             # time_input_detailはst.selectboxのkeyなので、削除
             if 'time_input_detail' in st.session_state:
                 del st.session_state.time_input_detail
+            # program_name_detailはst.text_inputのkeyなので、削除
             if 'program_name_detail' in st.session_state:
-                st.session_state.program_name_detail = ""
+                del st.session_state.program_name_detail
             # genre_detailはst.selectboxのkeyなので、削除
             if 'genre_detail' in st.session_state:
                 del st.session_state.genre_detail
+            # keyword_detailはst.text_inputのkeyなので、削除
             if 'keyword_detail' in st.session_state:
-                st.session_state.keyword_detail = ""
+                del st.session_state.keyword_detail
             if 'use_vector_search' in st.session_state:
                 st.session_state.use_vector_search = False
             # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
             st.session_state.search_channel = "すべて"
             st.session_state.search_date = None
             st.session_state.search_time = None
+            st.session_state.search_program_name = ""
+            st.session_state.search_genre = ""
+            st.session_state.search_performer = ""
+            st.session_state.search_keyword = ""
             st.rerun()
 
 with tab_performer:
@@ -1096,15 +1106,22 @@ with tab_performer:
                 del st.session_state.channel_performer
             if 'keyword_performer' in st.session_state:
                 st.session_state.keyword_performer = ""
-            # performer_performerはst.selectboxのkeyなので、削除してから再設定
+            # performer_performerはst.selectboxのkeyなので、削除
             if 'performer_performer' in st.session_state:
                 del st.session_state.performer_performer
+            # keyword_performerはst.text_inputのkeyなので、削除
+            if 'keyword_performer' in st.session_state:
+                del st.session_state.keyword_performer
             if 'use_vector_search' in st.session_state:
                 st.session_state.use_vector_search = False
             # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
             st.session_state.search_channel = "すべて"
             st.session_state.search_date = None
             st.session_state.search_time = None
+            st.session_state.search_program_name = ""
+            st.session_state.search_genre = ""
+            st.session_state.search_performer = ""
+            st.session_state.search_keyword = ""
             st.rerun()
 
 with tab_program_type:
@@ -1389,6 +1406,10 @@ with tab_program_type:
             st.session_state.search_channel = "すべて"
             st.session_state.search_date = None
             st.session_state.search_time = None
+            st.session_state.search_program_name = ""
+            st.session_state.search_genre = ""
+            st.session_state.search_performer = ""
+            st.session_state.search_keyword = ""
             st.rerun()
 
 # 最新データタブ
