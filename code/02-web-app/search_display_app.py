@@ -1572,13 +1572,15 @@ with tab_latest:
                     # time_input_detailはst.selectboxのkeyなので、削除
                     if 'time_input_detail' in st.session_state:
                         del st.session_state.time_input_detail
+                    # program_name_detailはst.text_inputのkeyなので、削除
                     if 'program_name_detail' in st.session_state:
-                        st.session_state.program_name_detail = ""
+                        del st.session_state.program_name_detail
                     # genre_detailはst.selectboxのkeyなので、削除
                     if 'genre_detail' in st.session_state:
                         del st.session_state.genre_detail
+                    # keyword_detailはst.text_inputのkeyなので、削除
                     if 'keyword_detail' in st.session_state:
-                        st.session_state.keyword_detail = ""
+                        del st.session_state.keyword_detail
                     # channel_performerはst.selectboxのkeyなので、削除
                     if 'channel_performer' in st.session_state:
                         del st.session_state.channel_performer
