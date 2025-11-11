@@ -807,6 +807,10 @@ with tab_date:
                 del st.session_state.date_input
             if 'time_input' in st.session_state:
                 del st.session_state.time_input
+            # ウィジェットのkeyを削除した後、検索条件も再設定（確実にリセット）
+            st.session_state.search_channel = "すべて"
+            st.session_state.search_date = None
+            st.session_state.search_time = None
             st.rerun()
 
 with tab_detail:
@@ -976,6 +980,13 @@ with tab_detail:
                 del st.session_state.genre_detail
             if 'keyword_detail' in st.session_state:
                 del st.session_state.keyword_detail
+            # ウィジェットのkeyを削除した後、検索条件も再設定（確実にリセット）
+            st.session_state.search_channel = "すべて"
+            st.session_state.search_date = None
+            st.session_state.search_time = None
+            st.session_state.search_program_name = ""
+            st.session_state.search_genre = ""
+            st.session_state.search_keyword = ""
             st.rerun()
 
 with tab_performer:
@@ -1104,6 +1115,10 @@ with tab_performer:
                 del st.session_state.keyword_performer
             if 'performer_performer' in st.session_state:
                 del st.session_state.performer_performer
+            # ウィジェットのkeyを削除した後、検索条件も再設定（確実にリセット）
+            st.session_state.search_channel = "すべて"
+            st.session_state.search_performer = ""
+            st.session_state.search_keyword = ""
             st.rerun()
 
 with tab_program_type:
