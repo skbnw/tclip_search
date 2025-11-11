@@ -494,11 +494,12 @@ def get_performer_names(_s3_client) -> List[str]:
 # 番組名リストの取得（初回のみ読み込み、ジャンルとテレビ局でフィルタリング可能）
 @st.cache_data(ttl=3600)  # 1時間キャッシュ
 def get_program_names(_s3_client, genre_filter: str = None, channel_filters: List[str] = None) -> List[str]:
-    """データベースから番組名のリストを取得（ジャンルとテレビ局でフィルタリング可能）"""
+    """データベースから番組名のリストを取得（ジャンルとテレビ局でフィルタリング可能、日付の新しい順にソート）"""
     try:
         all_masters = list_all_master_data(_s3_client)
         
-        program_names = set()
+        # 番組名と日付情報をペアで保存
+        program_name_with_date = []  # [(program_name, sort_key), ...]
         
         for master in all_masters:
             metadata = master.get('metadata', {})
@@ -564,6 +565,23 @@ def get_program_names(_s3_client, genre_filter: str = None, channel_filters: Lis
                 if not channel_match:
                     continue
             
+            # ソート用のキーを取得（start_timeから日時を抽出）
+            def get_sort_key_from_metadata(metadata):
+                """メタデータからソート用のキーを取得"""
+                start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', ''))
+                
+                if start_time and len(start_time) >= 12 and start_time[:12].isdigit():
+                    # YYYYMMDDHHMM形式（12桁）の場合
+                    return int(start_time[:12])
+                elif start_time and len(start_time) >= 8 and start_time[:8].isdigit():
+                    # YYYYMMDD形式（8桁）の場合
+                    return int(start_time[:8]) * 10000  # 時間部分を0として扱う
+                else:
+                    # 日時情報がない場合は最後に表示
+                    return 0
+            
+            sort_key = get_sort_key_from_metadata(metadata)
+            
             # 番組名の候補フィールドをチェック
             program_fields = [
                 metadata.get('program_name', ''),
@@ -578,9 +596,20 @@ def get_program_names(_s3_client, genre_filter: str = None, channel_filters: Lis
                 if field_value:
                     program_name = str(field_value).strip()
                     if program_name and program_name != 'None':
-                        program_names.add(program_name)
+                        program_name_with_date.append((program_name, sort_key))
         
-        return sorted(list(program_names))
+        # 日付の新しい順（降順）にソート、同じ日付の場合はテキスト順
+        program_name_with_date.sort(key=lambda x: (-x[1], x[0]))
+        
+        # 重複を除去（最初の出現のみを保持）
+        seen = set()
+        result = []
+        for program_name, _ in program_name_with_date:
+            if program_name not in seen:
+                seen.add(program_name)
+                result.append(program_name)
+        
+        return result
     except Exception as e:
         st.error(f"番組名リストの取得エラー: {str(e)}")
         return []
@@ -872,6 +901,38 @@ with tab_detail:
             st.session_state.search_keyword = keyword
             # 検索時にページをリセット
             st.session_state.current_page = 1
+    
+    # 全てクリアボタンを右寄せで表示（検索ボタンの下）
+    col_clear_left, col_clear_right = st.columns([7, 3])
+    with col_clear_right:
+        if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button_detail"):
+            # 検索条件をクリア
+            st.session_state.search_channel = "すべて"
+            st.session_state.search_date = None
+            st.session_state.search_time = None
+            st.session_state.search_program_name = ""
+            st.session_state.search_genre = ""
+            st.session_state.search_performer = ""
+            st.session_state.search_keyword = ""
+            st.session_state.search_results = []
+            st.session_state.selected_doc_id = None
+            st.session_state.current_page = 1
+            # 各タブの入力フィールドもクリア
+            if 'channel_detail' in st.session_state:
+                st.session_state.channel_detail = "すべて"
+            if 'date_input_detail' in st.session_state:
+                st.session_state.date_input_detail = None
+            if 'time_input_detail' in st.session_state:
+                st.session_state.time_input_detail = None
+            if 'program_name_detail' in st.session_state:
+                st.session_state.program_name_detail = ""
+            if 'genre_detail' in st.session_state:
+                st.session_state.genre_detail = "すべて"
+            if 'keyword_detail' in st.session_state:
+                st.session_state.keyword_detail = ""
+            if 'use_vector_search' in st.session_state:
+                st.session_state.use_vector_search = False
+            st.rerun()
 
 with tab_performer:
     # 出演者タブ: 放送局、出演者名（サジェスト付き）、キーワード
@@ -964,6 +1025,32 @@ with tab_performer:
             st.session_state.search_performer = performer_performer if performer_performer else ""
             # 検索時にページをリセット
             st.session_state.current_page = 1
+    
+    # 全てクリアボタンを右寄せで表示（検索ボタンの下）
+    col_clear_left, col_clear_right = st.columns([7, 3])
+    with col_clear_right:
+        if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button_performer"):
+            # 検索条件をクリア
+            st.session_state.search_channel = "すべて"
+            st.session_state.search_date = None
+            st.session_state.search_time = None
+            st.session_state.search_program_name = ""
+            st.session_state.search_genre = ""
+            st.session_state.search_performer = ""
+            st.session_state.search_keyword = ""
+            st.session_state.search_results = []
+            st.session_state.selected_doc_id = None
+            st.session_state.current_page = 1
+            # 各タブの入力フィールドもクリア
+            if 'channel_performer' in st.session_state:
+                st.session_state.channel_performer = "すべて"
+            if 'keyword_performer' in st.session_state:
+                st.session_state.keyword_performer = ""
+            if 'performer_performer' in st.session_state:
+                st.session_state.performer_performer = ""
+            if 'use_vector_search' in st.session_state:
+                st.session_state.use_vector_search = False
+            st.rerun()
 
 with tab_program_type:
     # 番組選択タブ: 期間設定、ジャンル、テレビ局、番組名の順
@@ -3529,10 +3616,6 @@ if search_button:
                                     st.info("最初の50件の中に、検索条件に一致する可能性のあるデータは見つかりませんでした。")
             else:
                 st.success(f"✅ {len(search_results)} 件のデータが見つかりました")
-                # すべてクリアボタンを右寄せで表示
-                col_clear_left, col_clear_right = st.columns([7, 3])
-                with col_clear_right:
-                    if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button"):
                         # 検索条件をクリア
                         st.session_state.search_channel = "すべて"
                         st.session_state.search_date = None
