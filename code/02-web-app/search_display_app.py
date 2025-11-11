@@ -4272,7 +4272,6 @@ elif st.session_state.search_results:
                     if chunk_text:
                         # チャンクテキストを表示（最大112文字、2割減、時間情報を削除）
                         # 時間情報パターン（[HH:MM:SS.mmm-HH:MM:SS.mmm]）を削除
-                        import re
                         chunk_text_clean = re.sub(r'\[\d{2}:\d{2}:\d{2}\.\d{3}-\d{2}:\d{2}:\d{2}\.\d{3}\]\s*', '', chunk_text)
                         chunk_preview = chunk_text_clean[:112] + "..." if len(chunk_text_clean) > 112 else chunk_text_clean
                         similarity_percent = f"{vector_similarity * 100:.1f}%"
