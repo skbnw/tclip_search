@@ -1275,82 +1275,96 @@ with tab_program_type:
 # 検索ボタンの状態を統合
 search_button = search_button_date or search_button_detail or search_button_performer or search_button_program_type
 
-# 最新番組データを表示（検索条件の下）
+# 最新データを表示（検索条件の下）
 st.markdown("---")
 try:
-    latest_programs = get_latest_programs(_s3_client=s3_client, limit=10)
+    latest_programs = get_latest_programs(_s3_client=s3_client, limit=6)
     if latest_programs:
-        st.subheader("📺 最新番組")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.caption(f"最新 {len(latest_programs)} 件の番組（放送開始時間順）")
-        with col2:
-            jst_now = get_jst_now()
-            st.caption(f"現在時刻（JST）: {jst_now.strftime('%Y年%m月%d日 %H:%M')}")
+        # 画像があるデータのみフィルタリング
+        programs_with_images = []
+        for program in latest_programs:
+            doc_id = program.get('doc_id', '')
+            if doc_id:
+                try:
+                    images = list_images(_s3_client=s3_client, doc_id=doc_id)
+                    if images and len(images) > 0:
+                        programs_with_images.append(program)
+                except Exception:
+                    continue
         
-        # 最新番組をグリッド形式で表示（サムネイル付き）
-        # 2列のグリッドレイアウト
-        num_cols = 2
-        for row_idx in range(0, len(latest_programs), num_cols):
-            cols = st.columns(num_cols)
-            for col_idx, col in enumerate(cols):
-                program_idx = row_idx + col_idx
-                if program_idx < len(latest_programs):
-                    program = latest_programs[program_idx]
-                    with col:
-                        metadata = program.get('metadata', {})
-                        doc_id = program.get('doc_id', '')
-                        program_name = metadata.get('program_name', '') or metadata.get('program_title', '') or metadata.get('title', '') or '番組名不明'
-                        channel = metadata.get('channel', '') or metadata.get('放送局', '') or '放送局不明'
-                        start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', '')) or ''
-                        
-                        # 日時を整形
-                        time_display = ''
-                        if start_time and len(start_time) >= 12 and start_time[:12].isdigit():
-                            # YYYYMMDDHHMM形式
-                            year = start_time[:4]
-                            month = start_time[4:6]
-                            day = start_time[6:8]
-                            hour = start_time[8:10]
-                            minute = start_time[10:12]
-                            time_display = f"{year}年{month}月{day}日 {hour}:{minute}"
-                        elif start_time and len(start_time) >= 8 and start_time[:8].isdigit():
-                            # YYYYMMDD形式
-                            year = start_time[:4]
-                            month = start_time[4:6]
-                            day = start_time[6:8]
-                            time_display = f"{year}年{month}月{day}日"
-                        
-                        # サムネイル画像を取得（最初の1枚）
-                        thumbnail_url = None
-                        if doc_id:
-                            try:
-                                images = list_images(_s3_client=s3_client, doc_id=doc_id)
-                                if images and len(images) > 0:
-                                    # 最初の画像をサムネイルとして使用
-                                    thumbnail_url = images[0].get('url', None)
-                            except Exception:
-                                pass
-                        
-                        # カード形式で表示
-                        with st.container():
-                            # サムネイル画像を表示
+        if programs_with_images:
+            st.subheader("📺 最新データ")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.caption(f"最新 {len(programs_with_images)} 件のデータ（放送開始時間順、画像ありのみ）")
+            with col2:
+                jst_now = get_jst_now()
+                st.caption(f"現在時刻（JST）: {jst_now.strftime('%Y年%m月%d日 %H:%M')}")
+            
+            # 最新データをグリッド形式で表示（サムネイル付き）
+            # 2列のグリッドレイアウト
+            num_cols = 2
+            for row_idx in range(0, len(programs_with_images), num_cols):
+                cols = st.columns(num_cols)
+                for col_idx, col in enumerate(cols):
+                    program_idx = row_idx + col_idx
+                    if program_idx < len(programs_with_images):
+                        program = programs_with_images[program_idx]
+                        with col:
+                            metadata = program.get('metadata', {})
+                            doc_id = program.get('doc_id', '')
+                            program_name = metadata.get('program_name', '') or metadata.get('program_title', '') or metadata.get('title', '') or '番組名不明'
+                            channel = metadata.get('channel', '') or metadata.get('放送局', '') or '放送局不明'
+                            start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', '')) or ''
+                            
+                            # 日時を整形
+                            time_display = ''
+                            if start_time and len(start_time) >= 12 and start_time[:12].isdigit():
+                                # YYYYMMDDHHMM形式
+                                year = start_time[:4]
+                                month = start_time[4:6]
+                                day = start_time[6:8]
+                                hour = start_time[8:10]
+                                minute = start_time[10:12]
+                                time_display = f"{year}年{month}月{day}日 {hour}:{minute}"
+                            elif start_time and len(start_time) >= 8 and start_time[:8].isdigit():
+                                # YYYYMMDD形式
+                                year = start_time[:4]
+                                month = start_time[4:6]
+                                day = start_time[6:8]
+                                time_display = f"{year}年{month}月{day}日"
+                            
+                            # サムネイル画像を取得（最初の1枚）
+                            thumbnail_url = None
+                            if doc_id:
+                                try:
+                                    images = list_images(_s3_client=s3_client, doc_id=doc_id)
+                                    if images and len(images) > 0:
+                                        # 最初の画像をサムネイルとして使用
+                                        thumbnail_url = images[0].get('url', None)
+                                except Exception:
+                                    pass
+                            
+                            # 画像がある場合のみ表示
                             if thumbnail_url:
-                                st.image(thumbnail_url, use_container_width=True, caption=program_name)
-                            else:
-                                # 画像がない場合はプレースホルダー
-                                st.markdown(f"<div style='height: 200px; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 5px;'>📺 画像なし</div>", unsafe_allow_html=True)
-                            
-                            # 番組情報を表示
-                            st.markdown(f"**{program_name}**")
-                            st.caption(f"📡 {channel}")
-                            st.caption(f"🕐 {time_display}")
-                            
-                            # 詳細を見るボタン
-                            if st.button("詳細を見る", key=f"latest_program_{doc_id}", use_container_width=True):
-                                st.session_state.selected_doc_id = doc_id
-                                st.session_state.search_results = [program]
-                                st.rerun()
+                                # カード形式で表示
+                                with st.container():
+                                    # サムネイル画像を表示
+                                    st.image(thumbnail_url, use_container_width=True, caption=program_name)
+                                    
+                                    # 番組情報を表示
+                                    st.markdown(f"**{program_name}**")
+                                    st.caption(f"📡 {channel}")
+                                    st.caption(f"🕐 {time_display}")
+                                    
+                                    # 詳細を見るボタン
+                                    if st.button("詳細を見る", key=f"latest_program_{doc_id}", use_container_width=True):
+                                        st.session_state.selected_doc_id = doc_id
+                                        # 検索結果に含めるために、プログラムデータを追加
+                                        if 'search_results' not in st.session_state:
+                                            st.session_state.search_results = []
+                                        # 既存の検索結果をクリアせず、選択されたdoc_idを保持
+                                        st.rerun()
 except Exception as e:
     # エラーが発生した場合は表示しない（サイレントに失敗）
     pass
@@ -3585,7 +3599,35 @@ if not search_button and 'search_results' not in st.session_state:
                 st.info(f"📺 現在時刻（{now.strftime('%Y年%m月%d日 %H:%M')}）に該当する番組を {len(search_results_sorted)} 件見つけました")
 
 # 検索結果のリスト表示（詳細表示前に）
-if st.session_state.search_results:
+# selected_doc_idが設定されている場合は詳細表示を優先
+if st.session_state.selected_doc_id:
+    st.markdown("---")
+    # 詳細表示モード（独立した画面として表示）
+    # 戻るボタンとタイトル
+    col_back, col_title = st.columns([1, 9])
+    with col_back:
+        if st.button("← 戻る", use_container_width=True):
+            st.session_state.selected_doc_id = None
+            st.rerun()
+    with col_title:
+        st.markdown("### 📄 詳細情報")
+    st.markdown("---")
+    doc_id = st.session_state.selected_doc_id
+    
+    # チャンクタブに切り替えるフラグをチェック
+    show_chunk_key = f"show_chunk_for_{doc_id}"
+    target_chunk_filename = None
+    if show_chunk_key in st.session_state and st.session_state[show_chunk_key]:
+        target_chunk_filename = st.session_state[show_chunk_key]
+        # フラグは保持（チャンクが表示された後にクリア）
+    
+    with st.spinner("データを取得中..."):
+        full_master_data = get_master_data(_s3_client=s3_client, doc_id=doc_id)
+        chunks = get_chunk_data(_s3_client=s3_client, doc_id=doc_id)
+        images = list_images(_s3_client=s3_client, doc_id=doc_id)
+    
+    display_master_data(full_master_data, chunks, images, doc_id, target_chunk_filename)
+elif st.session_state.search_results:
     st.markdown("---")
     st.subheader("検索結果")
     
@@ -3606,35 +3648,8 @@ if st.session_state.search_results:
     <div class="search-results-scroll">
     """, unsafe_allow_html=True)
     
-    # 詳細表示モード（独立した画面として表示）
-    if st.session_state.selected_doc_id:
-        # 戻るボタンとタイトル
-        col_back, col_title = st.columns([1, 9])
-        with col_back:
-            if st.button("← 戻る", use_container_width=True):
-                st.session_state.selected_doc_id = None
-                st.rerun()
-        with col_title:
-            st.markdown("### 📄 詳細情報")
-        st.markdown("---")
-        doc_id = st.session_state.selected_doc_id
-        
-        # チャンクタブに切り替えるフラグをチェック
-        show_chunk_key = f"show_chunk_for_{doc_id}"
-        target_chunk_filename = None
-        if show_chunk_key in st.session_state and st.session_state[show_chunk_key]:
-            target_chunk_filename = st.session_state[show_chunk_key]
-            # フラグは保持（チャンクが表示された後にクリア）
-        
-        with st.spinner("データを取得中..."):
-            full_master_data = get_master_data(_s3_client=s3_client, doc_id=doc_id)
-            chunks = get_chunk_data(_s3_client=s3_client, doc_id=doc_id)
-            images = list_images(_s3_client=s3_client, doc_id=doc_id)
-        
-        display_master_data(full_master_data, chunks, images, doc_id, target_chunk_filename)
-    
     # リスト表示モード
-    else:
+    if not st.session_state.selected_doc_id:
         # ページング機能（20件ごと）
         total_results = len(st.session_state.search_results)
         items_per_page = 20
