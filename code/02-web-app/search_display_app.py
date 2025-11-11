@@ -1330,6 +1330,21 @@ try:
                 jst_now = get_jst_now()
                 st.caption(f"現在時刻（JST）: {jst_now.strftime('%Y年%m月%d日 %H:%M')}")
             
+            # 内窓方式（スクロール可能な領域）で表示
+            st.markdown("""
+            <style>
+            .latest-data-scroll {
+                max-height: 400px;
+                overflow-y: auto;
+                padding: 10px;
+                border: 1px solid #e0e0e0;
+                border-radius: 5px;
+                background-color: #fafafa;
+            }
+            </style>
+            <div class="latest-data-scroll">
+            """, unsafe_allow_html=True)
+            
             # 指定された順序で3つの段落に分割
             # 段落1: NHK総合、日本テレビ
             # 段落2: TBS、テレビ朝日
@@ -1355,7 +1370,7 @@ try:
                         programs = channel_groups[channel]
                         
                         with col:
-                            st.markdown(f"### 📡 {channel}")
+                            st.markdown(f"**📡 {channel}**")
                             
                             for program in programs:
                                 metadata = program.get('metadata', {})
@@ -1374,13 +1389,13 @@ try:
                                     # YYYYMMDD形式（時間なし）
                                     time_display = ""
                                 
-                                # 番組名を10文字程度に切り詰め
-                                program_name_short = program_name[:10] + "..." if len(program_name) > 10 else program_name
+                                # 番組名を12文字まで表示
+                                program_name_short = program_name[:12] + "..." if len(program_name) > 12 else program_name
                                 
-                                # 左寄せで表示（時間と番組名を横並び）
-                                col_time, col_name = st.columns([1, 4])
+                                # 左寄せで表示（時間と番組名を横並び、コンパクトに）
+                                col_time, col_name = st.columns([1, 5])
                                 with col_time:
-                                    st.markdown(f"**{time_display}**")
+                                    st.markdown(f"**{time_display}**", help="放送時間")
                                 with col_name:
                                     button_key = f"latest_{channel}_{doc_id}_{para_idx}_{col_idx}_{program_name_short}"
                                     if st.button(program_name_short, key=button_key, use_container_width=True):
@@ -1388,7 +1403,9 @@ try:
                                         if 'search_results' not in st.session_state:
                                             st.session_state.search_results = []
                                         st.rerun()
-                                st.markdown("---")
+            
+            # 内窓の終了タグ
+            st.markdown("</div>", unsafe_allow_html=True)
 except Exception as e:
     # エラーが発生した場合は表示しない（サイレントに失敗）
     # ただし、その後の処理は続行する
