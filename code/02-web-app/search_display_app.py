@@ -631,108 +631,7 @@ def find_nearest_time(target_time: time, time_list: List[str]) -> Optional[str]:
     
     return nearest_time
 
-# 検索フォーム
-col_title, col_clear = st.columns([7, 3])
-with col_title:
-    pass  # タイトルは不要
-with col_clear:
-    # クリアボタンを表示（下側に配置、右寄せ）
-    st.markdown("<div style='text-align: right; padding-top: 1.5rem;'>", unsafe_allow_html=True)
-    if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button"):
-        # 検索条件をクリア
-        st.session_state.search_channel = "すべて"
-        st.session_state.search_date = None
-        st.session_state.search_time = None
-        st.session_state.search_program_name = ""
-        st.session_state.search_genre = ""
-        st.session_state.search_performer = ""
-        st.session_state.search_keyword = ""
-        st.session_state.search_results = []
-        st.session_state.selected_doc_id = None
-        st.session_state.current_page = 1
-        # 各タブの入力フィールドもクリア
-        if 'channel_date' in st.session_state:
-            st.session_state.channel_date = "すべて"
-        if 'channel_detail' in st.session_state:
-            st.session_state.channel_detail = "すべて"
-        if 'channel_performer' in st.session_state:
-            st.session_state.channel_performer = "すべて"
-        if 'date_input' in st.session_state:
-            st.session_state.date_input = None
-        if 'date_input_detail' in st.session_state:
-            st.session_state.date_input_detail = None
-        if 'time_input' in st.session_state:
-            st.session_state.time_input = None
-        if 'time_input_detail' in st.session_state:
-            st.session_state.time_input_detail = None
-        if 'program_name_detail' in st.session_state:
-            st.session_state.program_name_detail = ""
-        if 'genre_detail' in st.session_state:
-            st.session_state.genre_detail = "すべて"
-        if 'keyword_detail' in st.session_state:
-            st.session_state.keyword_detail = ""
-        if 'keyword_performer' in st.session_state:
-            st.session_state.keyword_performer = ""
-        if 'performer_performer' in st.session_state:
-            st.session_state.performer_performer = ""
-        if 'search_program_names' in st.session_state:
-            st.session_state.search_program_names = []
-        if 'search_period_type' in st.session_state:
-            st.session_state.search_period_type = "すべて"
-        if 'search_start_date' in st.session_state:
-            st.session_state.search_start_date = None
-        if 'search_end_date' in st.session_state:
-            st.session_state.search_end_date = None
-        if 'search_weekdays' in st.session_state:
-            st.session_state.search_weekdays = []
-        if 'search_genre_program' in st.session_state:
-            st.session_state.search_genre_program = "すべて"
-        if 'search_channels_program' in st.session_state:
-            st.session_state.search_channels_program = []
-        if 'search_program_names' in st.session_state:
-            st.session_state.search_program_names = []
-        # 番組選択タブの入力フィールドもクリア
-        if 'period_type' in st.session_state:
-            st.session_state.period_type = "すべて"
-        if 'genre_program' in st.session_state:
-            st.session_state.genre_program = "すべて"
-        if 'program_names_multiselect' in st.session_state:
-            st.session_state.program_names_multiselect = []
-        if 'start_date_input_program' in st.session_state:
-            st.session_state.start_date_input_program = None
-        if 'end_date_input_program' in st.session_state:
-            st.session_state.end_date_input_program = None
-        if 'selected_weekdays' in st.session_state:
-            st.session_state.selected_weekdays = []
-        # テレビ局選択のチェックボックスをクリア
-        if 'channel_all_program' in st.session_state:
-            st.session_state.channel_all_program = True  # 「すべて」を選択状態にする
-        if 'channel_nhk_program' in st.session_state:
-            st.session_state.channel_nhk_program = False
-        if 'channel_nhk_etv_program' in st.session_state:
-            st.session_state.channel_nhk_etv_program = False
-        if 'channel_ntv_program' in st.session_state:
-            st.session_state.channel_ntv_program = False
-        if 'channel_tbs_program' in st.session_state:
-            st.session_state.channel_tbs_program = False
-        if 'channel_fuji_program' in st.session_state:
-            st.session_state.channel_fuji_program = False
-        if 'channel_tv_asahi_program' in st.session_state:
-            st.session_state.channel_tv_asahi_program = False
-        if 'channel_tv_tokyo_program' in st.session_state:
-            st.session_state.channel_tv_tokyo_program = False
-        # テレビ局選択の状態をリセット
-        if 'last_channels_program' in st.session_state:
-            st.session_state.last_channels_program = []
-        if 'last_genre_program' in st.session_state:
-            st.session_state.last_genre_program = "すべて"
-        st.rerun()
-    # 現在時刻をボタンの下に表示（右寄せ）
-    jst_now = get_jst_now()
-    # 曜日の英語表記
-    weekday_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    weekday_en = weekday_names[jst_now.weekday()]
-    st.markdown(f"<div style='text-align: right; padding-top: 0.5rem;'><small>{jst_now.strftime('%Y-%m-%d %H:%M')} {weekday_en}</small></div>", unsafe_allow_html=True)
+# 検索フォーム（クリアボタンは検索結果の下に移動）
 
 # タブで検索条件を切り替え（最新データを最初のタブに）
 tab_latest, tab_date, tab_detail, tab_performer, tab_program_type = st.tabs(["📺 最新", "📅 日付", "🔍 詳細", "👤 出演", "📺 番組"])
@@ -3591,6 +3490,98 @@ if search_button:
                                     st.info("最初の50件の中に、検索条件に一致する可能性のあるデータは見つかりませんでした。")
             else:
                 st.success(f"✅ {len(search_results)} 件のデータが見つかりました")
+                # すべてクリアボタンを右寄せで表示
+                col_clear_left, col_clear_right = st.columns([7, 3])
+                with col_clear_right:
+                    if st.button("🔄 全てクリア", use_container_width=True, key="clear_all_button"):
+                        # 検索条件をクリア
+                        st.session_state.search_channel = "すべて"
+                        st.session_state.search_date = None
+                        st.session_state.search_time = None
+                        st.session_state.search_program_name = ""
+                        st.session_state.search_genre = ""
+                        st.session_state.search_performer = ""
+                        st.session_state.search_keyword = ""
+                        st.session_state.search_results = []
+                        st.session_state.selected_doc_id = None
+                        st.session_state.current_page = 1
+                        # 各タブの入力フィールドもクリア
+                        if 'channel_date' in st.session_state:
+                            st.session_state.channel_date = "すべて"
+                        if 'channel_detail' in st.session_state:
+                            st.session_state.channel_detail = "すべて"
+                        if 'channel_performer' in st.session_state:
+                            st.session_state.channel_performer = "すべて"
+                        if 'date_input' in st.session_state:
+                            st.session_state.date_input = None
+                        if 'date_input_detail' in st.session_state:
+                            st.session_state.date_input_detail = None
+                        if 'time_input' in st.session_state:
+                            st.session_state.time_input = None
+                        if 'time_input_detail' in st.session_state:
+                            st.session_state.time_input_detail = None
+                        if 'program_name_detail' in st.session_state:
+                            st.session_state.program_name_detail = ""
+                        if 'genre_detail' in st.session_state:
+                            st.session_state.genre_detail = "すべて"
+                        if 'keyword_detail' in st.session_state:
+                            st.session_state.keyword_detail = ""
+                        if 'keyword_performer' in st.session_state:
+                            st.session_state.keyword_performer = ""
+                        if 'performer_performer' in st.session_state:
+                            st.session_state.performer_performer = ""
+                        if 'search_program_names' in st.session_state:
+                            st.session_state.search_program_names = []
+                        if 'search_period_type' in st.session_state:
+                            st.session_state.search_period_type = "すべて"
+                        if 'search_start_date' in st.session_state:
+                            st.session_state.search_start_date = None
+                        if 'search_end_date' in st.session_state:
+                            st.session_state.search_end_date = None
+                        if 'search_weekdays' in st.session_state:
+                            st.session_state.search_weekdays = []
+                        if 'search_genre_program' in st.session_state:
+                            st.session_state.search_genre_program = "すべて"
+                        if 'search_channels_program' in st.session_state:
+                            st.session_state.search_channels_program = []
+                        if 'search_program_names' in st.session_state:
+                            st.session_state.search_program_names = []
+                        # 番組選択タブの入力フィールドもクリア
+                        if 'period_type' in st.session_state:
+                            st.session_state.period_type = "すべて"
+                        if 'genre_program' in st.session_state:
+                            st.session_state.genre_program = "すべて"
+                        if 'program_names_multiselect' in st.session_state:
+                            st.session_state.program_names_multiselect = []
+                        if 'start_date_input_program' in st.session_state:
+                            st.session_state.start_date_input_program = None
+                        if 'end_date_input_program' in st.session_state:
+                            st.session_state.end_date_input_program = None
+                        if 'selected_weekdays' in st.session_state:
+                            st.session_state.selected_weekdays = []
+                        # テレビ局選択のチェックボックスをクリア
+                        if 'channel_all_program' in st.session_state:
+                            st.session_state.channel_all_program = True  # 「すべて」を選択状態にする
+                        if 'channel_nhk_program' in st.session_state:
+                            st.session_state.channel_nhk_program = False
+                        if 'channel_nhk_etv_program' in st.session_state:
+                            st.session_state.channel_nhk_etv_program = False
+                        if 'channel_ntv_program' in st.session_state:
+                            st.session_state.channel_ntv_program = False
+                        if 'channel_tbs_program' in st.session_state:
+                            st.session_state.channel_tbs_program = False
+                        if 'channel_fuji_program' in st.session_state:
+                            st.session_state.channel_fuji_program = False
+                        if 'channel_tv_asahi_program' in st.session_state:
+                            st.session_state.channel_tv_asahi_program = False
+                        if 'channel_tv_tokyo_program' in st.session_state:
+                            st.session_state.channel_tv_tokyo_program = False
+                        # テレビ局選択の状態をリセット
+                        if 'last_channels_program' in st.session_state:
+                            st.session_state.last_channels_program = []
+                        if 'last_genre_program' in st.session_state:
+                            st.session_state.last_genre_program = "すべて"
+                        st.rerun()
                 st.markdown("---")
 
 # 初期表示時（検索ボタンが押されていない場合）に現在時刻の番組を表示
@@ -3857,8 +3848,70 @@ elif st.session_state.search_results:
             })
         
         # テーブル表示（クリック可能にするためにカスタム表示）
+        # キーワード検索の場合、マッチした箇所を表示するための関数
+        def get_keyword_snippet(master, keyword):
+            """キーワードがマッチした箇所のスニペットを取得"""
+            if not keyword or not keyword.strip():
+                return None
+            
+            keyword_lower = keyword.strip().lower()
+            snippets = []
+            
+            # 全文テキストから検索
+            full_text = master.get('full_text', '')
+            if full_text:
+                full_text_str = str(full_text)
+                full_text_lower = full_text_str.lower()
+                if keyword_lower in full_text_lower:
+                    # キーワードの位置を探す
+                    pos = full_text_lower.find(keyword_lower)
+                    if pos >= 0:
+                        # 前後50文字を取得
+                        start = max(0, pos - 50)
+                        end = min(len(full_text_str), pos + len(keyword_lower) + 50)
+                        snippet = full_text_str[start:end]
+                        # キーワードをハイライト（大文字小文字を区別しない）
+                        snippet_highlighted = re.sub(
+                            re.escape(keyword), 
+                            lambda m: f"<mark style='background-color: yellow;'>{m.group()}</mark>",
+                            snippet,
+                            flags=re.IGNORECASE
+                        )
+                        snippets.append(f"全文: ...{snippet_highlighted}...")
+            
+            # メタデータから検索
+            metadata = master.get('metadata', {})
+            if metadata:
+                text_fields = [
+                    'program_name', 'program_title', 'master_title',
+                    'description', 'description_detail', 'program_detail'
+                ]
+                for field in text_fields:
+                    field_value = metadata.get(field, '')
+                    if field_value:
+                        field_value_str = str(field_value)
+                        field_value_lower = field_value_str.lower()
+                        if keyword_lower in field_value_lower:
+                            # キーワードをハイライト（大文字小文字を区別しない）
+                            field_value_highlighted = re.sub(
+                                re.escape(keyword),
+                                lambda m: f"<mark style='background-color: yellow;'>{m.group()}</mark>",
+                                field_value_str,
+                                flags=re.IGNORECASE
+                            )
+                            snippets.append(f"{field}: {field_value_highlighted}")
+            
+            return snippets if snippets else None
+        
         for idx, row in enumerate(results_data):
             with st.container():
+                # 元のmasterデータを取得
+                master = current_page_results[idx]
+                
+                # キーワードマッチのスニペットを取得
+                keyword = st.session_state.get("search_keyword", "")
+                keyword_snippets = get_keyword_snippet(master, keyword) if keyword else None
+                
                 # カード形式で表示
                 col1, col2, col3, col4, col5, col6 = st.columns([0.3, 1.2, 1.5, 1.5, 2, 0.8])
                 
@@ -3882,6 +3935,13 @@ elif st.session_state.search_results:
                     if st.button(f"詳細", key=f"detail_{row['doc_id']}", use_container_width=True):
                         st.session_state.selected_doc_id = row['doc_id']
                         st.rerun()
+                
+                # キーワードマッチのスニペットを表示
+                if keyword_snippets:
+                    st.markdown(f"<div style='padding: 0.5rem; background-color: #f0f0f0; border-left: 3px solid #4CAF50; margin: 0.5rem 0;'><small><strong>🔍 マッチ箇所:</strong></small><br>", unsafe_allow_html=True)
+                    for snippet in keyword_snippets[:2]:  # 最大2つまで表示
+                        st.markdown(f"<small>{snippet}</small>", unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
                 
                 st.markdown("---")
         
