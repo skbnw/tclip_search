@@ -707,38 +707,13 @@ search_button_detail = False
 search_button_performer = False
 
 with tab_date:
-    # 日付タブ: 放送局、日付、時間
+    # 日付タブ: 日付・期間、時間・曜日、放送局
     with st.form("search_form_date"):
         search_options = get_search_options(_s3_client=s3_client)
         
-        # 3列レイアウト（均等配置）
-        col1, col2, col3 = st.columns([1, 1, 1])
-        
-        with col1:
-            # 放送局（選択式）
-            channel_options = ["すべて"]
-            if search_options['channels']:
-                channel_options.extend(search_options['channels'])
-            else:
-                # チャンネル情報がない場合でも表示
-                st.warning("⚠️ 放送局データを読み込み中...")
-            
-            # セッションステートから初期値を取得
-            initial_channel_index = 0
-            if 'channel_date' in st.session_state and st.session_state.channel_date in channel_options:
-                initial_channel_index = channel_options.index(st.session_state.channel_date)
-            elif st.session_state.search_channel in channel_options:
-                initial_channel_index = channel_options.index(st.session_state.search_channel)
-            
-            channel = st.selectbox(
-                "放送局",
-                options=channel_options,
-                help="放送局を選択してください",
-                key="channel_date",
-                index=initial_channel_index
-            )
-        
-        with col2:
+        # 1. 日付と期間（2列）
+        col_date, col_period = st.columns([1, 1])
+        with col_date:
             # 日付
             initial_date = st.session_state.search_date if 'search_date' in st.session_state else None
             selected_date = st.date_input(
@@ -748,7 +723,48 @@ with tab_date:
                 key="date_input"
             )
         
-        with col3:
+        with col_period:
+            # 期間設定
+            period_options_date = ["すべて", "今週", "先週", "1カ月内", "カスタム"]
+            initial_period_index_date = 0
+            if 'period_type_date' in st.session_state and st.session_state.period_type_date in period_options_date:
+                initial_period_index_date = period_options_date.index(st.session_state.period_type_date)
+            elif st.session_state.get("search_period_type_date", "すべて") in period_options_date:
+                initial_period_index_date = period_options_date.index(st.session_state.get("search_period_type_date", "すべて"))
+            
+            period_type_date = st.selectbox(
+                "期間",
+                options=period_options_date,
+                help="検索期間のタイプを選択してください",
+                key="period_type_date",
+                index=initial_period_index_date
+            )
+            
+            # カスタム期間の場合のみ日付選択を表示
+            start_date_date = None
+            end_date_date = None
+            if period_type_date == "カスタム":
+                col_start, col_end = st.columns(2)
+                with col_start:
+                    initial_start_date = st.session_state.search_start_date_date if 'search_start_date_date' in st.session_state else None
+                    start_date_date = st.date_input(
+                        "開始日",
+                        value=initial_start_date,
+                        help="検索開始日を選択してください",
+                        key="start_date_input_date"
+                    )
+                with col_end:
+                    initial_end_date = st.session_state.search_end_date_date if 'search_end_date_date' in st.session_state else None
+                    end_date_date = st.date_input(
+                        "終了日",
+                        value=initial_end_date,
+                        help="検索終了日を選択してください",
+                        key="end_date_input_date"
+                    )
+        
+        # 2. 時間と曜日（2列）
+        col_time, col_weekday = st.columns([1, 1])
+        with col_time:
             # 時間（30分単位）
             time_options = generate_time_options()
             # セッションステートから時間を復元
@@ -774,6 +790,48 @@ with tab_date:
                 index=selected_time_index
             )
         
+        with col_weekday:
+            # 曜日選択（複数選択可能）
+            weekday_options = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
+            initial_weekdays_date = st.session_state.get("search_weekdays_date", [])
+            if not initial_weekdays_date:
+                initial_weekdays_date = []
+            # 初期選択状態を取得（存在するもののみ）
+            valid_initial_weekdays_date = [w for w in initial_weekdays_date if w in weekday_options]
+            selected_weekdays_date = st.multiselect(
+                "曜日（複数選択可）",
+                options=weekday_options,
+                default=valid_initial_weekdays_date,
+                help="検索する曜日を選択してください（複数選択可、任意）",
+                key="selected_weekdays_date"
+            )
+        
+        # 3. 放送局
+        col_channel = st.columns([1])[0]
+        with col_channel:
+            # 放送局（選択式）
+            channel_options = ["すべて"]
+            if search_options['channels']:
+                channel_options.extend(search_options['channels'])
+            else:
+                # チャンネル情報がない場合でも表示
+                st.warning("⚠️ 放送局データを読み込み中...")
+            
+            # セッションステートから初期値を取得
+            initial_channel_index = 0
+            if 'channel_date' in st.session_state and st.session_state.channel_date in channel_options:
+                initial_channel_index = channel_options.index(st.session_state.channel_date)
+            elif st.session_state.search_channel in channel_options:
+                initial_channel_index = channel_options.index(st.session_state.search_channel)
+            
+            channel = st.selectbox(
+                "放送局",
+                options=channel_options,
+                help="放送局を選択してください（任意）",
+                key="channel_date",
+                index=initial_channel_index
+            )
+        
         # 検索ボタン
         search_button_date = st.form_submit_button("🔍 検索", use_container_width=True)
         
@@ -782,6 +840,14 @@ with tab_date:
             st.session_state.search_channel = channel
             st.session_state.search_date = selected_date
             st.session_state.search_time = selected_time.strftime("%H:%M") if selected_time else None
+            st.session_state.search_period_type_date = period_type_date
+            if period_type_date == "カスタム":
+                st.session_state.search_start_date_date = start_date_date
+                st.session_state.search_end_date_date = end_date_date
+            else:
+                st.session_state.search_start_date_date = None
+                st.session_state.search_end_date_date = None
+            st.session_state.search_weekdays_date = selected_weekdays_date
             # 検索時にページをリセット
             st.session_state.current_page = 1
     
@@ -979,30 +1045,9 @@ with tab_detail:
             st.rerun()
 
 with tab_performer:
-    # 出演者タブ: 放送局、出演者名（サジェスト付き）、キーワード
+    # 出演者タブ: 出演者名、キーワード
     with st.form("search_form_performer"):
         search_options = get_search_options(_s3_client=s3_client)
-        
-        # 放送局
-        col_channel = st.columns([1])[0]
-        with col_channel:
-            channel_options = ["すべて"]
-            if search_options['channels']:
-                channel_options.extend(search_options['channels'])
-            
-            initial_channel_index = 0
-            if 'channel_performer' in st.session_state and st.session_state.channel_performer in channel_options:
-                initial_channel_index = channel_options.index(st.session_state.channel_performer)
-            elif st.session_state.search_channel in channel_options:
-                initial_channel_index = channel_options.index(st.session_state.search_channel)
-            
-            channel_performer = st.selectbox(
-                "放送局",
-                options=channel_options,
-                help="放送局を選択してください",
-                key="channel_performer",
-                index=initial_channel_index
-            )
         
         # 出演者名（サジェスト付き）
         col_performer = st.columns([1])[0]
@@ -1111,65 +1156,10 @@ with tab_performer:
             st.rerun()
 
 with tab_program_type:
-    # 番組検索タブ: 期間設定、ジャンル、テレビ局、番組名（シンプルなデザイン）
+    # 番組検索タブ: ジャンル、テレビ局、番組名（期間設定を削除）
     search_options = get_search_options(_s3_client=s3_client)
     
     with st.form("search_form_program_type"):
-        # 期間設定
-        period_options = ["すべて", "今週", "先週", "1カ月内", "曜日", "カスタム"]
-        initial_period_index = 0
-        if 'period_type' in st.session_state and st.session_state.period_type in period_options:
-            initial_period_index = period_options.index(st.session_state.period_type)
-        elif st.session_state.get("search_period_type", "すべて") in period_options:
-            initial_period_index = period_options.index(st.session_state.get("search_period_type", "すべて"))
-        
-        period_type = st.selectbox(
-            "期間設定",
-            options=period_options,
-            help="検索期間のタイプを選択してください",
-            key="period_type",
-            index=initial_period_index
-        )
-        
-        # 曜日選択（期間タイプが「曜日」の場合、複数選択可能）
-        selected_weekdays = []
-        if period_type == "曜日":
-            weekday_options = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
-            initial_weekdays = st.session_state.get("search_weekdays", [])
-            if not initial_weekdays:
-                initial_weekdays = []
-            # 初期選択状態を取得（存在するもののみ）
-            valid_initial_weekdays = [w for w in initial_weekdays if w in weekday_options]
-            selected_weekdays = st.multiselect(
-                "曜日（複数選択可）",
-                options=weekday_options,
-                default=valid_initial_weekdays,
-                help="検索する曜日を選択してください（複数選択可）",
-                key="selected_weekdays"
-            )
-        
-        # カスタム期間の場合のみ日付選択を表示
-        start_date_program = None
-        end_date_program = None
-        if period_type == "カスタム":
-            col_start, col_end = st.columns(2)
-            with col_start:
-                initial_start_date = st.session_state.search_start_date if 'search_start_date' in st.session_state else None
-                start_date_program = st.date_input(
-                    "開始日",
-                    value=initial_start_date,
-                    help="検索開始日を選択してください",
-                    key="start_date_input_program"
-                )
-            with col_end:
-                initial_end_date = st.session_state.search_end_date if 'search_end_date' in st.session_state else None
-                end_date_program = st.date_input(
-                    "終了日",
-                    value=initial_end_date,
-                    help="検索終了日を選択してください",
-                    key="end_date_input_program"
-                )
-        
         # ジャンルとテレビ局（2列）
         col_genre, col_channel = st.columns([1, 1])
         
@@ -1273,17 +1263,10 @@ with tab_program_type:
         
         # フォーム送信時にセッションステートを更新
         if search_button_program_type:
-            st.session_state.search_period_type = period_type
-            if period_type == "カスタム":
-                st.session_state.search_start_date = start_date_program
-                st.session_state.search_end_date = end_date_program
-            else:
-                st.session_state.search_start_date = None
-                st.session_state.search_end_date = None
-            if period_type == "曜日":
-                st.session_state.search_weekdays = selected_weekdays
-            else:
-                st.session_state.search_weekdays = []
+            st.session_state.search_period_type = "すべて"  # 期間設定は使用しない
+            st.session_state.search_start_date = None
+            st.session_state.search_end_date = None
+            st.session_state.search_weekdays = []
             st.session_state.search_genre_program = genre_program
             st.session_state.search_channels_program = selected_channels
             st.session_state.search_program_names = selected_program_names
@@ -1615,7 +1598,7 @@ elif search_button_detail:
     channels_program_search = []
 elif search_button_performer:
     # 出演者タブから検索（このタブの設定のみを使用）
-    channel = st.session_state.get("channel_performer", "すべて")
+    channel = "すべて"  # 放送局は使用しない
     keyword = st.session_state.get("keyword_performer", "")
     performer_search = st.session_state.get("performer_performer", "")
     # 他のタブの値は使用しない
@@ -1632,14 +1615,10 @@ elif search_button_performer:
     channels_program_search = []
 elif search_button_program_type:
     # 番組選択タブから検索（このタブの設定のみを使用）
-    period_type_search = st.session_state.get("period_type", "すべて")
-    if period_type_search == "カスタム":
-        start_date_search = st.session_state.get("search_start_date", None)
-        end_date_search = st.session_state.get("search_end_date", None)
-    else:
-        start_date_search = None
-        end_date_search = None
-    weekdays_search = st.session_state.get("search_weekdays", []) if period_type_search == "曜日" else []
+    period_type_search = "すべて"  # 期間設定は使用しない
+    start_date_search = None
+    end_date_search = None
+    weekdays_search = []
     genre_program_search = st.session_state.get("genre_program", "すべて")
     channels_program_search = st.session_state.get("search_channels_program", [])
     program_names_search = st.session_state.get("program_names_multiselect", [])
