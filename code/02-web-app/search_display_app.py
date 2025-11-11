@@ -1110,47 +1110,10 @@ with tab_performer:
             st.session_state.current_page = 1
 
 with tab_program_type:
-    # 番組選択タブ: 期間設定、ジャンル、番組名（複数選択）
+    # 番組選択タブ: テレビ局、ジャンル、番組名、期間設定
     search_options = get_search_options(_s3_client=s3_client)
     
-    # ジャンル（プルダウン、固定順序で表示）- フォームの外で表示してリアルタイム更新
-    st.markdown("### 🎭 ジャンル")
-    genre_options = ["すべて"]
-    available_genres = set(search_options.get('genres', []))
-    
-    # 固定順序のジャンルを順番に追加（データベースに存在するかどうかに関わらず）
-    for genre in GENRE_ORDER[1:]:  # "すべて"を除く
-        if genre == "その他":
-            # 「その他」の前に、固定順序に含まれないジャンルを追加
-            for other_genre in sorted(available_genres):
-                if other_genre not in genre_options:
-                    genre_options.append(other_genre)
-        # データベースに存在する場合のみ追加
-        if genre in available_genres:
-            genre_options.append(genre)
-    
-    initial_genre_index = 0
-    if 'genre_program' in st.session_state and st.session_state.genre_program in genre_options:
-        initial_genre_index = genre_options.index(st.session_state.genre_program)
-    elif st.session_state.get("search_genre_program", "すべて") in genre_options:
-        initial_genre_index = genre_options.index(st.session_state.get("search_genre_program", "すべて"))
-    
-    # ジャンルが変更されたときに番組名リストをリセットするコールバック
-    def on_genre_change():
-        if 'program_names_multiselect' in st.session_state:
-            st.session_state.program_names_multiselect = []
-        st.session_state.last_genre_program = st.session_state.genre_program
-    
-    genre_program = st.selectbox(
-        "ジャンル",
-        options=genre_options,
-        help="ジャンルを選択してください（選択すると番組名が絞り込まれます）",
-        key="genre_program",
-        index=initial_genre_index,
-        on_change=on_genre_change
-    )
-    
-    # テレビ局選択（チェックボックス）
+    # テレビ局選択（チェックボックス）- 最初に表示
     st.markdown("### 📺 テレビ局選択")
     channel_options = ["すべて", "NHK総合", "NHK Eテレ", "日本テレビ", "TBS", "フジテレビ", "テレビ朝日", "テレビ東京"]
     
@@ -1210,6 +1173,43 @@ with tab_program_type:
         if 'program_names_multiselect' in st.session_state:
             st.session_state.program_names_multiselect = []
         st.session_state.last_channels_program = selected_channels
+    
+    # ジャンル（プルダウン、固定順序で表示）- テレビ局の後に表示
+    st.markdown("### 🎭 ジャンル")
+    genre_options = ["すべて"]
+    available_genres = set(search_options.get('genres', []))
+    
+    # 固定順序のジャンルを順番に追加（データベースに存在するかどうかに関わらず）
+    for genre in GENRE_ORDER[1:]:  # "すべて"を除く
+        if genre == "その他":
+            # 「その他」の前に、固定順序に含まれないジャンルを追加
+            for other_genre in sorted(available_genres):
+                if other_genre not in genre_options:
+                    genre_options.append(other_genre)
+        # データベースに存在する場合のみ追加
+        if genre in available_genres:
+            genre_options.append(genre)
+    
+    initial_genre_index = 0
+    if 'genre_program' in st.session_state and st.session_state.genre_program in genre_options:
+        initial_genre_index = genre_options.index(st.session_state.genre_program)
+    elif st.session_state.get("search_genre_program", "すべて") in genre_options:
+        initial_genre_index = genre_options.index(st.session_state.get("search_genre_program", "すべて"))
+    
+    # ジャンルが変更されたときに番組名リストをリセットするコールバック
+    def on_genre_change():
+        if 'program_names_multiselect' in st.session_state:
+            st.session_state.program_names_multiselect = []
+        st.session_state.last_genre_program = st.session_state.genre_program
+    
+    genre_program = st.selectbox(
+        "ジャンル",
+        options=genre_options,
+        help="ジャンルを選択してください（選択すると番組名が絞り込まれます）",
+        key="genre_program",
+        index=initial_genre_index,
+        on_change=on_genre_change
+    )
     
     # ジャンルとテレビ局でフィルタリングした番組名リストを取得
     program_names_list = get_program_names(
