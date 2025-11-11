@@ -814,32 +814,11 @@ with tab_date:
             st.rerun()
 
 with tab_detail:
-    # 詳細検索タブ: 放送局、番組名、ジャンル、キーワード（全文・テキスト検索）
+    # 詳細検索タブ: 日付・時間、放送局・ジャンル、番組名・キーワード
     with st.form("search_form_detail"):
         search_options = get_search_options(_s3_client=s3_client)
         
-        # 放送局
-        col_channel = st.columns([1])[0]
-        with col_channel:
-            channel_options = ["すべて"]
-            if search_options['channels']:
-                channel_options.extend(search_options['channels'])
-            
-            initial_channel_index = 0
-            if 'channel_detail' in st.session_state and st.session_state.channel_detail in channel_options:
-                initial_channel_index = channel_options.index(st.session_state.channel_detail)
-            elif st.session_state.search_channel in channel_options:
-                initial_channel_index = channel_options.index(st.session_state.search_channel)
-            
-            channel_detail = st.selectbox(
-                "放送局",
-                options=channel_options,
-                help="放送局を選択してください",
-                key="channel_detail",
-                index=initial_channel_index
-            )
-        
-        # 日付と時間
+        # 1. 日付と時間
         col_date, col_time = st.columns([1, 1])
         with col_date:
             initial_date = st.session_state.search_date if 'search_date' in st.session_state else None
@@ -874,17 +853,25 @@ with tab_detail:
                 index=selected_time_index_detail
             )
         
-        # 番組名、ジャンル、キーワード
-        col_program, col_genre, col_keyword = st.columns([1, 1, 1])
-        
-        with col_program:
-            initial_program_name = st.session_state.search_program_name if 'search_program_name' in st.session_state else ""
-            program_name_search = st.text_input(
-                "番組名",
-                value=initial_program_name,
-                placeholder="番組名を入力してください（任意）",
-                help="番組名で検索します",
-                key="program_name_detail"
+        # 2. 放送局とジャンル
+        col_channel, col_genre = st.columns([1, 1])
+        with col_channel:
+            channel_options = ["すべて"]
+            if search_options['channels']:
+                channel_options.extend(search_options['channels'])
+            
+            initial_channel_index = 0
+            if 'channel_detail' in st.session_state and st.session_state.channel_detail in channel_options:
+                initial_channel_index = channel_options.index(st.session_state.channel_detail)
+            elif st.session_state.search_channel in channel_options:
+                initial_channel_index = channel_options.index(st.session_state.search_channel)
+            
+            channel_detail = st.selectbox(
+                "放送局",
+                options=channel_options,
+                help="放送局を選択してください",
+                key="channel_detail",
+                index=initial_channel_index
             )
         
         with col_genre:
@@ -905,6 +892,18 @@ with tab_detail:
                 help="ジャンルを選択してください",
                 key="genre_detail",
                 index=initial_genre_index
+            )
+        
+        # 3. 番組名とキーワード
+        col_program, col_keyword = st.columns([1, 1])
+        with col_program:
+            initial_program_name = st.session_state.search_program_name if 'search_program_name' in st.session_state else ""
+            program_name_search = st.text_input(
+                "番組名",
+                value=initial_program_name,
+                placeholder="番組名を入力してください（任意）",
+                help="番組名で検索します",
+                key="program_name_detail"
             )
         
         with col_keyword:
