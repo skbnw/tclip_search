@@ -810,6 +810,10 @@ with tab_date:
             # time_inputはst.selectboxのkeyなので、削除
             if 'time_input' in st.session_state:
                 del st.session_state.time_input
+            # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
+            st.session_state.search_channel = "すべて"
+            st.session_state.search_date = None
+            st.session_state.search_time = None
             st.rerun()
 
 with tab_detail:
@@ -1093,6 +1097,10 @@ with tab_performer:
                 del st.session_state.performer_performer
             if 'use_vector_search' in st.session_state:
                 st.session_state.use_vector_search = False
+            # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
+            st.session_state.search_channel = "すべて"
+            st.session_state.search_date = None
+            st.session_state.search_time = None
             st.rerun()
 
 with tab_program_type:
@@ -1588,6 +1596,10 @@ with tab_latest:
                         st.session_state.last_channels_program = []
                     if 'last_genre_program' in st.session_state:
                         st.session_state.last_genre_program = "すべて"
+                    # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
+                    st.session_state.search_channel = "すべて"
+                    st.session_state.search_date = None
+                    st.session_state.search_time = None
                     st.rerun()
     except Exception as e:
         # エラーが発生した場合は表示しない（サイレントに失敗）
