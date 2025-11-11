@@ -18,6 +18,7 @@ import numpy as np
 from typing import Dict, List, Optional, Tuple
 from io import BytesIO
 from datetime import date, time, datetime, timedelta
+import pytz
 
 # ベクトル検索用のライブラリ（オプション）
 try:
@@ -225,6 +226,95 @@ s3_client = get_s3_client()
 if s3_client is None:
     st.error("S3クライアントの初期化に失敗しました。AWS認証情報を確認してください。")
     st.stop()
+
+# JST（日本標準時）で現在時刻を取得する関数
+def get_jst_now() -> datetime:
+    """JST（日本標準時）で現在時刻を取得"""
+    jst = pytz.timezone('Asia/Tokyo')
+    return datetime.now(jst)
+
+# 最新番組データの取得関数
+@st.cache_data(ttl=300)  # 5分キャッシュ
+def get_latest_programs(_s3_client, limit: int = 5) -> List[Dict]:
+    """最新の番組データを取得（放送開始時間の新しい順）"""
+    try:
+        all_masters = list_all_master_data(_s3_client)
+        
+        # ソート用のキーを取得
+        def get_sort_key(master):
+            """ソート用のキーを取得（start_timeから日時を抽出）"""
+            metadata = master.get('metadata', {})
+            start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', ''))
+            
+            if start_time and len(start_time) >= 12 and start_time[:12].isdigit():
+                # YYYYMMDDHHMM形式（12桁）の場合
+                return int(start_time[:12])
+            elif start_time and len(start_time) >= 8 and start_time[:8].isdigit():
+                # YYYYMMDD形式（8桁）の場合
+                return int(start_time[:8]) * 10000  # 時間部分を0として扱う
+            else:
+                # 日時情報がない場合は最後に表示
+                return 0
+        
+        # 放送開始時間の新しい順（降順）にソート
+        sorted_masters = sorted(all_masters, key=get_sort_key, reverse=True)
+        
+        # 最新のN件を返す
+        return sorted_masters[:limit]
+    except Exception as e:
+        return []
+
+# 最新番組データを表示（トップ画面の下、S3クライアントが利用可能な場合のみ）
+try:
+    latest_programs = get_latest_programs(_s3_client=s3_client, limit=5)
+    if latest_programs:
+        st.subheader("📺 最新番組データ")
+        col1, col2, col3 = st.columns([2, 2, 1])
+        with col1:
+            st.caption(f"最新 {len(latest_programs)} 件の番組（放送開始時間順）")
+        with col2:
+            jst_now = get_jst_now()
+            st.caption(f"現在時刻（JST）: {jst_now.strftime('%Y年%m月%d日 %H:%M')}")
+        
+        # 最新番組をカード形式で表示
+        for idx, program in enumerate(latest_programs):
+            metadata = program.get('metadata', {})
+            program_name = metadata.get('program_name', '') or metadata.get('program_title', '') or metadata.get('title', '') or '番組名不明'
+            channel = metadata.get('channel', '') or metadata.get('放送局', '') or '放送局不明'
+            start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', '')) or ''
+            
+            # 日時を整形
+            time_display = ''
+            if start_time and len(start_time) >= 12 and start_time[:12].isdigit():
+                # YYYYMMDDHHMM形式
+                year = start_time[:4]
+                month = start_time[4:6]
+                day = start_time[6:8]
+                hour = start_time[8:10]
+                minute = start_time[10:12]
+                time_display = f"{year}年{month}月{day}日 {hour}:{minute}"
+            elif start_time and len(start_time) >= 8 and start_time[:8].isdigit():
+                # YYYYMMDD形式
+                year = start_time[:4]
+                month = start_time[4:6]
+                day = start_time[6:8]
+                time_display = f"{year}年{month}月{day}日"
+            
+            # カード形式で表示
+            with st.container():
+                col_program, col_channel, col_time = st.columns([3, 2, 2])
+                with col_program:
+                    st.markdown(f"**{program_name}**")
+                with col_channel:
+                    st.markdown(f"📡 {channel}")
+                with col_time:
+                    st.markdown(f"🕐 {time_display}")
+                st.markdown("---")
+except Exception as e:
+    # エラーが発生した場合は表示しない（サイレントに失敗）
+    pass
+
+st.markdown("---")
 
 # 管理者チェック関数
 def is_admin() -> bool:
@@ -1782,7 +1872,7 @@ def search_master_data_advanced(
             
             if master_date_clean:
                 master_date_int = int(master_date_clean)
-                today = datetime.now()
+                today = get_jst_now()
                 today_str = today.strftime("%Y%m%d")
                 today_int = int(today_str)
                 
@@ -3112,7 +3202,7 @@ if search_button:
                     st.warning("⚠️ 検索条件を1つ以上入力してください")
                 
                 # 検索条件がない場合、現在時刻に該当する番組を自動検索
-                now = datetime.now()
+                now = get_jst_now()
                 current_date_str = now.strftime("%Y%m%d")
                 current_time_str = now.strftime("%H%M")
                 
@@ -3409,7 +3499,7 @@ if not search_button and 'search_results' not in st.session_state:
     
     if all_masters:
         # 現在時刻に該当する番組を自動検索
-        now = datetime.now()
+        now = get_jst_now()
         current_date_str = now.strftime("%Y%m%d")
         current_time_str = now.strftime("%H%M")
         
