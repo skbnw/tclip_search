@@ -664,7 +664,7 @@ def find_nearest_time(target_time: time, time_list: List[str]) -> Optional[str]:
 # 検索フォーム（クリアボタンは検索結果の下に移動）
 
 # タブで検索条件を切り替え（最新データを最初のタブに）
-tab_latest, tab_date, tab_detail, tab_performer, tab_program_type = st.tabs(["📺 最新", "📅 日付", "🔍 詳細", "👤 出演", "📺 番組"])
+tab_latest, tab_date, tab_detail, tab_performer, tab_program_type = st.tabs(["📺 最新", "📅 日付", "🔍 キーワード", "👤 出演", "📺 番組"])
 
 # 現在時刻をタブラインの右寄せで表示
 now = get_jst_now()
@@ -814,11 +814,42 @@ with tab_date:
             st.rerun()
 
 with tab_detail:
-    # 詳細検索タブ: 日付・時間、放送局・ジャンル、番組名・キーワード
+    # キーワード検索タブ: キーワード検索に特化（日付・時間、放送局・ジャンルは補助条件）
     with st.form("search_form_detail"):
         search_options = get_search_options(_s3_client=s3_client)
         
-        # 1. 日付と時間
+        # キーワード（メイン検索条件）
+        col_keyword = st.columns([1])[0]
+        with col_keyword:
+            initial_keyword = st.session_state.search_keyword if 'search_keyword' in st.session_state else ""
+            keyword = st.text_input(
+                "キーワード（全文・テキスト検索）",
+                value=initial_keyword,
+                placeholder="キーワードを入力してください",
+                help="全文テキストとチャンクテキストから検索します（テキストマッチング検索 + ベクトル検索）",
+                key="keyword_detail"
+            )
+            # ベクトル検索のオプション
+            if SENTENCE_TRANSFORMERS_AVAILABLE:
+                use_vector_search = st.checkbox(
+                    "ベクトル検索を使用",
+                    value=st.session_state.get("use_vector_search", False),
+                    help="ベクトル類似度検索を使用します（意味的な類似性を検出）",
+                    key="use_vector_search_detail"
+                )
+                st.session_state.use_vector_search = use_vector_search
+            else:
+                # sentence-transformersが利用できない場合でも、チェックボックスを表示（無効化）
+                use_vector_search = st.checkbox(
+                    "ベクトル検索を使用（sentence-transformersが必要）",
+                    value=False,
+                    disabled=True,
+                    help="ベクトル検索を使用するには、sentence-transformersライブラリが必要です。インストール方法: pip install sentence-transformers",
+                    key="use_vector_search_detail_disabled"
+                )
+                st.session_state.use_vector_search = False
+        
+        # 補助条件: 日付と時間
         col_date, col_time = st.columns([1, 1])
         with col_date:
             initial_date = st.session_state.search_date if 'search_date' in st.session_state else None
@@ -853,7 +884,7 @@ with tab_detail:
                 index=selected_time_index_detail
             )
         
-        # 2. 放送局とジャンル
+        # 補助条件: 放送局とジャンル
         col_channel, col_genre = st.columns([1, 1])
         with col_channel:
             channel_options = ["すべて"]
@@ -869,7 +900,7 @@ with tab_detail:
             channel_detail = st.selectbox(
                 "放送局",
                 options=channel_options,
-                help="放送局を選択してください",
+                help="放送局を選択してください（任意）",
                 key="channel_detail",
                 index=initial_channel_index
             )
@@ -889,51 +920,10 @@ with tab_detail:
             genre_search = st.selectbox(
                 "ジャンル",
                 options=genre_options,
-                help="ジャンルを選択してください",
+                help="ジャンルを選択してください（任意）",
                 key="genre_detail",
                 index=initial_genre_index
             )
-        
-        # 3. 番組名とキーワード
-        col_program, col_keyword = st.columns([1, 1])
-        with col_program:
-            initial_program_name = st.session_state.search_program_name if 'search_program_name' in st.session_state else ""
-            program_name_search = st.text_input(
-                "番組名",
-                value=initial_program_name,
-                placeholder="番組名を入力してください（任意）",
-                help="番組名で検索します",
-                key="program_name_detail"
-            )
-        
-        with col_keyword:
-            initial_keyword = st.session_state.search_keyword if 'search_keyword' in st.session_state else ""
-            keyword = st.text_input(
-                "キーワード（全文・テキスト検索）",
-                value=initial_keyword,
-                placeholder="キーワードを入力してください（任意）",
-                help="全文テキストとチャンクテキストから検索します（テキストマッチング検索 + ベクトル検索）",
-                key="keyword_detail"
-            )
-            # ベクトル検索のオプション
-            if SENTENCE_TRANSFORMERS_AVAILABLE:
-                use_vector_search = st.checkbox(
-                    "ベクトル検索を使用",
-                    value=st.session_state.get("use_vector_search", False),
-                    help="ベクトル類似度検索を使用します（意味的な類似性を検出）",
-                    key="use_vector_search_detail"
-                )
-                st.session_state.use_vector_search = use_vector_search
-            else:
-                # sentence-transformersが利用できない場合でも、チェックボックスを表示（無効化）
-                use_vector_search = st.checkbox(
-                    "ベクトル検索を使用（sentence-transformersが必要）",
-                    value=False,
-                    disabled=True,
-                    help="ベクトル検索を使用するには、sentence-transformersライブラリが必要です。インストール方法: pip install sentence-transformers",
-                    key="use_vector_search_detail_disabled"
-                )
-                st.session_state.use_vector_search = False
         
         # 検索ボタン
         search_button_detail = st.form_submit_button("🔍 検索", use_container_width=True)
@@ -1306,8 +1296,6 @@ with tab_program_type:
         st.warning("⚠️ 番組名データを読み込み中...")
         selected_program_names = []
     
-    # フォーム内で検索ボタンを表示
-    with st.form("search_form_program_type"):
         # 検索ボタン
         search_button_program_type = st.form_submit_button("🔍 検索", use_container_width=True)
         
