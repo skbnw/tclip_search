@@ -2576,9 +2576,9 @@ def search_master_data_with_chunks(
                         if len(results) >= max_results:
                             break
                 
-                # ベクトル検索の結果を類似度でソート（ベクトル検索情報があるもの優先）
+                # ベクトル検索の結果を類似度でソート（類似度の高い順、ベクトル検索情報があるもの優先）
                 results.sort(key=lambda x: (
-                    x.get('vector_similarity', 0) if x.get('vector_similarity') is not None else -1,
+                    x.get('vector_similarity', -1) if x.get('vector_similarity') is not None else -1,
                     x.get('doc_id', '')
                 ), reverse=True)
         
@@ -2650,6 +2650,33 @@ def get_chunk_embedding(chunk: Dict, model) -> Optional[np.ndarray]:
         st.error(f"埋め込みベクトルの生成エラー: {str(e)}")
         return None
 
+@st.cache_data(ttl=3600)  # 1時間キャッシュ
+def get_chunk_embeddings_cached(_s3_client, doc_id: str) -> List[Optional[np.ndarray]]:
+    """チャンクのベクトルを取得（キャッシュ付き）"""
+    chunks = get_chunk_data(_s3_client, doc_id)
+    if not chunks:
+        return []
+    
+    embeddings = []
+    for chunk in chunks:
+        embedding = None
+        # 既存のベクトルがある場合はそれを使用
+        if 'embedding' in chunk:
+            embedding_data = chunk.get('embedding')
+            if isinstance(embedding_data, list):
+                embedding = np.array(embedding_data)
+            elif isinstance(embedding_data, np.ndarray):
+                embedding = embedding_data
+        elif 'vector' in chunk:
+            vector_data = chunk.get('vector')
+            if isinstance(vector_data, list):
+                embedding = np.array(vector_data)
+            elif isinstance(vector_data, np.ndarray):
+                embedding = vector_data
+        embeddings.append(embedding)
+    
+    return embeddings
+
 def search_with_vector_similarity(
     _s3_client,
     master_list: List[Dict],
@@ -2657,7 +2684,7 @@ def search_with_vector_similarity(
     max_results: int = 500,
     similarity_threshold: float = 0.3
 ) -> List[Dict]:
-    """ベクトル類似度検索を実行"""
+    """ベクトル類似度検索を実行（高速化版：事前計算されたベクトルを使用）"""
     if not query or not query.strip():
         return []
     
@@ -2703,14 +2730,22 @@ def search_with_vector_similarity(
         if not chunks:
             continue
         
+        # チャンクのベクトルを取得（キャッシュ付き）
+        chunk_embeddings = get_chunk_embeddings_cached(_s3_client, doc_id)
+        
         # 各チャンクのベクトルとクエリの類似度を計算
         best_similarity = 0.0
         best_chunk = None
         
-        for chunk in chunks:
-            chunk_embedding = get_chunk_embedding(chunk, model)
+        for chunk_idx, chunk in enumerate(chunks):
+            # キャッシュされたベクトルを使用
+            chunk_embedding = chunk_embeddings[chunk_idx] if chunk_idx < len(chunk_embeddings) else None
+            
+            # ベクトルがない場合は、モデルで生成（フォールバック）
             if chunk_embedding is None:
-                continue
+                chunk_embedding = get_chunk_embedding(chunk, model)
+                if chunk_embedding is None:
+                    continue
             
             # コサイン類似度を計算
             similarity = compute_cosine_similarity(query_embedding, chunk_embedding)
@@ -4235,10 +4270,13 @@ elif st.session_state.search_results:
                 if vector_similarity is not None and best_chunk:
                     chunk_text = best_chunk.get('text', '')
                     if chunk_text:
-                        # チャンクテキストを表示（最大140文字、3割減）
-                        chunk_preview = chunk_text[:140] + "..." if len(chunk_text) > 140 else chunk_text
+                        # チャンクテキストを表示（最大112文字、2割減、時間情報を削除）
+                        # 時間情報パターン（[HH:MM:SS.mmm-HH:MM:SS.mmm]）を削除
+                        import re
+                        chunk_text_clean = re.sub(r'\[\d{2}:\d{2}:\d{2}\.\d{3}-\d{2}:\d{2}:\d{2}\.\d{3}\]\s*', '', chunk_text)
+                        chunk_preview = chunk_text_clean[:112] + "..." if len(chunk_text_clean) > 112 else chunk_text_clean
                         similarity_percent = f"{vector_similarity * 100:.1f}%"
-                        match_info.append(("ベクトル検索", [f"類似度: {similarity_percent}", f"チャンク: {chunk_preview}"]))
+                        match_info.append(("ベクトル検索", [f"類似度: {similarity_percent}", f"...{chunk_preview}"]))
                 
                 # デバッグ情報（管理者のみ、ベクトル検索が有効な場合のみ）
                 if is_admin() and keyword and st.session_state.get('use_vector_search', False):
