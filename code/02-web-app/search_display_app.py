@@ -2472,92 +2472,52 @@ def display_master_data(master_data, chunks, images, doc_id, target_chunk_filena
         tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 番組メタデータ", "🤖 AI要約", "🖼️ 画面スクショ", "📄 全文", "📑 チャンク"])
     
     with tab1:
-        st.subheader("番組メタデータ")
-        
-        # メタ情報をテーブル形式で表示
+        # メタ情報をシンプルに表示
         if metadata:
-            # 主要なメタデータをテーブル形式で表示
-            table_data = []
+            # 放送局
+            channel = metadata.get('channel') or metadata.get('channel_code', '')
+            if channel:
+                st.markdown(f"**放送局** {channel}")
             
-            # 基本情報
-            if metadata.get('event_id'):
-                table_data.append({"項目": "イベントID", "値": metadata.get('event_id')})
-            if metadata.get('channel_code'):
-                table_data.append({"項目": "チャンネルコード", "値": metadata.get('channel_code')})
-            if metadata.get('channel'):
-                table_data.append({"項目": "放送局", "値": metadata.get('channel')})
-            if metadata.get('region'):
-                table_data.append({"項目": "地域", "値": metadata.get('region')})
+            # 放送時間
+            date_val = metadata.get('broadcast_date') or metadata.get('date')
+            start_time = metadata.get('start_time', '')
+            end_time = metadata.get('end_time', '')
             
-            # 日時情報
-            if metadata.get('date') or metadata.get('broadcast_date'):
-                date_val = metadata.get('broadcast_date') or metadata.get('date')
-                date_str = str(date_val)
-                # YYYYMMDD形式の場合
+            if date_val or start_time or end_time:
+                # 日付をフォーマット
+                date_str = str(date_val) if date_val else ''
                 if len(date_str) >= 8 and date_str.isdigit():
                     date_display = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
-                # YYYY-MM-DD形式の場合
                 elif '-' in date_str:
                     date_display = date_str
                 else:
                     date_display = date_str
-                table_data.append({"項目": "放送日", "値": date_display})
-            if metadata.get('start_time'):
-                start_time = format_time_display_detail(metadata.get('start_time', ''))
-                table_data.append({"項目": "開始時間", "値": start_time})
-            if metadata.get('end_time'):
-                end_time = format_time_display_detail(metadata.get('end_time', ''))
-                table_data.append({"項目": "終了時間", "値": end_time})
+                
+                # 時間をフォーマット
+                start_time_formatted = format_time_display_detail(start_time) if start_time else ''
+                end_time_formatted = format_time_display_detail(end_time) if end_time else ''
+                
+                # 放送時間を組み立て
+                if date_display and (start_time_formatted or end_time_formatted):
+                    time_display = f"{date_display}"
+                    if start_time_formatted:
+                        time_display += f" {start_time_formatted}"
+                    if end_time_formatted:
+                        time_display += f" - {end_time_formatted}"
+                    st.markdown(f"**放送時間** {time_display}")
+                elif date_display:
+                    st.markdown(f"**放送時間** {date_display}")
             
-            # 番組情報
-            if metadata.get('program_name') or metadata.get('program_title') or metadata.get('master_title'):
-                program_name = metadata.get('program_name') or metadata.get('program_title') or metadata.get('master_title')
-                table_data.append({"項目": "番組名", "値": program_name})
-            if metadata.get('program_detail'):
-                table_data.append({"項目": "番組詳細", "値": metadata.get('program_detail')})
-            if metadata.get('description'):
-                table_data.append({"項目": "説明", "値": metadata.get('description')})
-            if metadata.get('description_detail'):
-                table_data.append({"項目": "詳細説明", "値": metadata.get('description_detail')})
-            if metadata.get('genre'):
-                table_data.append({"項目": "ジャンル", "値": metadata.get('genre')})
+            # 番組名
+            program_name = metadata.get('program_name') or metadata.get('program_title') or metadata.get('master_title')
+            if program_name:
+                st.markdown(f"**番組名** {program_name}")
             
-            # 出演者情報（リンク付き）
-            if metadata.get('talents'):
-                talents = metadata.get('talents', [])
-                if isinstance(talents, list) and len(talents) > 0:
-                    talent_links = []
-                    for talent in talents:
-                        if isinstance(talent, dict):
-                            name = talent.get('name', '')
-                            link = talent.get('link', '')
-                            if name:
-                                if link:
-                                    talent_links.append(f"[{name}]({link})")
-                                else:
-                                    talent_links.append(name)
-                        elif isinstance(talent, str):
-                            talent_links.append(talent)
-                    if talent_links:
-                        table_data.append({"項目": "出演者", "値": ", ".join(talent_links)})
-            if metadata.get('talent_count'):
-                table_data.append({"項目": "出演者数", "値": str(metadata.get('talent_count'))})
-            
-            # テーブル表示（詰めて表示）
-            if table_data:
-                # HTMLテーブル風の表示（詰めて）
-                for row in table_data:
-                    col1, col2 = st.columns([2, 5])
-                    with col1:
-                        st.markdown(f"**{row['項目']}**")
-                    with col2:
-                        # マークダウンリンクを処理
-                        if isinstance(row['値'], str) and row['値'].startswith('[') and '](' in row['値']:
-                            st.markdown(row['値'])
-                        else:
-                            st.markdown(row['値'])
-            else:
-                st.info("表示可能なメタデータがありません")
+            # 番組詳細
+            program_detail = metadata.get('program_detail')
+            if program_detail:
+                st.markdown(f"**番組詳細** {program_detail}")
             
             # 全メタデータをJSON形式でダウンロード可能にする
             json_str = json.dumps(metadata, ensure_ascii=False, indent=2)
@@ -3649,13 +3609,13 @@ if st.session_state.selected_doc_id:
     st.markdown("---")
     # 詳細表示モード（独立した画面として表示）
     # 戻るボタンとタイトル
-    col_back, col_title = st.columns([1, 9])
+    col_title, col_back = st.columns([9, 1])
+    with col_title:
+        st.markdown("### 詳細情報")
     with col_back:
         if st.button("← 戻る", use_container_width=True):
             st.session_state.selected_doc_id = None
             st.rerun()
-    with col_title:
-        st.markdown("### 📄 詳細情報")
     st.markdown("---")
     doc_id = st.session_state.selected_doc_id
     
