@@ -1350,20 +1350,14 @@ with tab_program_type:
             st.session_state.selected_doc_id = None
             st.session_state.current_page = 1
             # 各タブの入力フィールドもクリア
-            if 'search_program_names' in st.session_state:
-                st.session_state.search_program_names = []
-            if 'search_period_type' in st.session_state:
-                st.session_state.search_period_type = "すべて"
-            if 'search_start_date' in st.session_state:
-                st.session_state.search_start_date = None
-            if 'search_end_date' in st.session_state:
-                st.session_state.search_end_date = None
-            if 'search_weekdays' in st.session_state:
-                st.session_state.search_weekdays = []
-            if 'search_genre_program' in st.session_state:
-                st.session_state.search_genre_program = "すべて"
-            if 'search_channels_program' in st.session_state:
-                st.session_state.search_channels_program = []
+            # まず、検索条件のセッションステートをクリア（ウィジェットの初期値設定のため）
+            st.session_state.search_program_names = []
+            st.session_state.search_period_type = "すべて"
+            st.session_state.search_start_date = None
+            st.session_state.search_end_date = None
+            st.session_state.search_weekdays = []
+            st.session_state.search_genre_program = "すべて"
+            st.session_state.search_channels_program = []
             # 番組選択タブの入力フィールドもクリア
             # period_type、genre_program、start_date_input_program、end_date_input_program、selected_weekdaysはウィジェットのkeyなので、削除
             if 'period_type' in st.session_state:
