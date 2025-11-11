@@ -226,6 +226,20 @@ if s3_client is None:
     st.error("S3クライアントの初期化に失敗しました。AWS認証情報を確認してください。")
     st.stop()
 
+# 管理者チェック関数
+def is_admin() -> bool:
+    """管理者かどうかをチェック（Streamlit secretsまたは環境変数から取得）"""
+    try:
+        # Streamlit secretsから取得を試行
+        if hasattr(st, 'secrets') and 'ADMIN_MODE' in st.secrets:
+            return bool(st.secrets.get('ADMIN_MODE', False))
+    except (AttributeError, KeyError):
+        pass
+    
+    # 環境変数から取得を試行
+    admin_mode = os.getenv('ADMIN_MODE', '').lower()
+    return admin_mode in ('true', '1', 'yes', 'on')
+
 # メインコンテンツ
 
 # インデックスファイルのパス
@@ -3093,7 +3107,66 @@ if search_button:
                 (channels_program_search and len(channels_program_search) > 0 and "すべて" not in channels_program_search)
             )
             if not has_search_condition:
-                st.warning("⚠️ 検索条件を1つ以上入力してください")
+                # 管理者のみエラーメッセージを表示
+                if is_admin():
+                    st.warning("⚠️ 検索条件を1つ以上入力してください")
+                
+                # 検索条件がない場合、現在時刻に該当する番組を自動検索
+                now = datetime.now()
+                current_date_str = now.strftime("%Y%m%d")
+                current_time_str = now.strftime("%H%M")
+                
+                # 現在時刻で検索を実行
+                with st.spinner(f"現在時刻（{now.strftime('%Y年%m月%d日 %H:%M')}）に該当する番組を検索中..."):
+                    search_results = search_master_data_with_chunks(
+                        _s3_client=s3_client,
+                        master_list=all_masters,
+                        program_id="",
+                        date_str=current_date_str,
+                        time_str=current_time_str,
+                        channel="",
+                        keyword="",
+                        program_name="",
+                        performer="",
+                        genre="",
+                        program_names=None,
+                        period_type="すべて",
+                        start_date=None,
+                        end_date=None,
+                        weekday=None,
+                        weekdays=None,
+                        genre_program="すべて",
+                        channels_program=None,
+                        time_tolerance_minutes=30
+                    )
+                    
+                    # 検索結果を放送開始時間の新しい順にソート
+                    def get_sort_key(master):
+                        """ソート用のキーを取得（start_timeから日時を抽出）"""
+                        metadata = master.get('metadata', {})
+                        start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', ''))
+                        
+                        if start_time and len(start_time) >= 12 and start_time[:12].isdigit():
+                            # YYYYMMDDHHMM形式（12桁）の場合
+                            return int(start_time[:12])
+                        elif start_time and len(start_time) >= 8 and start_time[:8].isdigit():
+                            # YYYYMMDD形式（8桁）の場合
+                            return int(start_time[:8]) * 10000  # 時間部分を0として扱う
+                        else:
+                            # 日時情報がない場合は最後に表示
+                            return 0
+                    
+                    # 放送開始時間の新しい順（降順）にソート
+                    search_results_sorted = sorted(search_results, key=get_sort_key, reverse=True)
+                    
+                    # 検索結果をセッションステートに保存
+                    st.session_state.search_results = search_results_sorted
+                    st.session_state.current_page = 1
+                    
+                    if search_results_sorted:
+                        st.info(f"📺 現在時刻（{now.strftime('%Y年%m月%d日 %H:%M')}）に該当する番組を {len(search_results_sorted)} 件見つけました")
+                    else:
+                        st.info(f"📺 現在時刻（{now.strftime('%Y年%m月%d日 %H:%M')}）に該当する番組は見つかりませんでした")
             else:
                 with st.spinner(f"検索中: {', '.join(search_conditions) if search_conditions else '条件なし'}..."):
                     # 期間指定を文字列に変換
@@ -3327,6 +3400,67 @@ if search_button:
             else:
                 st.success(f"✅ {len(search_results)} 件のデータが見つかりました")
                 st.markdown("---")
+
+# 初期表示時（検索ボタンが押されていない場合）に現在時刻の番組を表示
+if not search_button and 'search_results' not in st.session_state:
+    # 全データを取得
+    with st.spinner("データを読み込み中...（初回のみ時間がかかります）"):
+        all_masters = list_all_master_data(_s3_client=s3_client)
+    
+    if all_masters:
+        # 現在時刻に該当する番組を自動検索
+        now = datetime.now()
+        current_date_str = now.strftime("%Y%m%d")
+        current_time_str = now.strftime("%H%M")
+        
+        with st.spinner(f"現在時刻（{now.strftime('%Y年%m月%d日 %H:%M')}）に該当する番組を検索中..."):
+            search_results = search_master_data_with_chunks(
+                _s3_client=s3_client,
+                master_list=all_masters,
+                program_id="",
+                date_str=current_date_str,
+                time_str=current_time_str,
+                channel="",
+                keyword="",
+                program_name="",
+                performer="",
+                genre="",
+                program_names=None,
+                period_type="すべて",
+                start_date=None,
+                end_date=None,
+                weekday=None,
+                weekdays=None,
+                genre_program="すべて",
+                channels_program=None,
+                time_tolerance_minutes=30
+            )
+            
+            # 検索結果を放送開始時間の新しい順にソート
+            def get_sort_key_initial(master):
+                """ソート用のキーを取得（start_timeから日時を抽出）"""
+                metadata = master.get('metadata', {})
+                start_time = str(metadata.get('start_time', '')) or str(metadata.get('開始時間', ''))
+                
+                if start_time and len(start_time) >= 12 and start_time[:12].isdigit():
+                    # YYYYMMDDHHMM形式（12桁）の場合
+                    return int(start_time[:12])
+                elif start_time and len(start_time) >= 8 and start_time[:8].isdigit():
+                    # YYYYMMDD形式（8桁）の場合
+                    return int(start_time[:8]) * 10000  # 時間部分を0として扱う
+                else:
+                    # 日時情報がない場合は最後に表示
+                    return 0
+            
+            # 放送開始時間の新しい順（降順）にソート
+            search_results_sorted = sorted(search_results, key=get_sort_key_initial, reverse=True)
+            
+            # 検索結果をセッションステートに保存
+            st.session_state.search_results = search_results_sorted
+            st.session_state.current_page = 1
+            
+            if search_results_sorted:
+                st.info(f"📺 現在時刻（{now.strftime('%Y年%m月%d日 %H:%M')}）に該当する番組を {len(search_results_sorted)} 件見つけました")
 
 # 検索結果のリスト表示（詳細表示前に）
 if st.session_state.search_results:
