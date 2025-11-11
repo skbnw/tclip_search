@@ -1390,8 +1390,15 @@ with tab_program_type:
             if 'last_channels_program' in st.session_state:
                 st.session_state.last_channels_program = []
             if 'last_genre_program' in st.session_state:
-                st.session_state.last_genre_program = "すべて"
-            # 検索条件のセッションステートも明示的にクリア（ウィジェットの初期値設定のため）
+                del st.session_state.last_genre_program
+            # ウィジェットのkeyを削除した後、検索条件も再設定（確実にリセット）
+            st.session_state.search_program_names = []
+            st.session_state.search_period_type = "すべて"
+            st.session_state.search_start_date = None
+            st.session_state.search_end_date = None
+            st.session_state.search_weekdays = []
+            st.session_state.search_genre_program = "すべて"
+            st.session_state.search_channels_program = []
             st.session_state.search_channel = "すべて"
             st.session_state.search_date = None
             st.session_state.search_time = None
