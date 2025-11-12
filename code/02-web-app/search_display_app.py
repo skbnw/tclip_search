@@ -1469,9 +1469,7 @@ with tab_latest:
                     # keyword_detailはst.text_inputのkeyなので、削除
                     if 'keyword_detail' in st.session_state:
                         del st.session_state.keyword_detail
-                    # channel_performerはst.selectboxのkeyなので、削除
-                    if 'channel_performer' in st.session_state:
-                        del st.session_state.channel_performer
+                    # channel_performerは削除済み（出演者タブから放送局を削除したため）
                     # keyword_performerはst.text_inputのkeyなので、削除
                     if 'keyword_performer' in st.session_state:
                         del st.session_state.keyword_performer
