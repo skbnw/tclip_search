@@ -59,12 +59,8 @@ st.set_page_config(
 
 # ベーシック認証は解除しました
 
-# タイトル（アスキーアート表示）
-st.markdown("""
-<div style='font-family: monospace;'>
-#=#=#  T-CLIP  β  Television Content Intelligence #=#=#
-</div>
-""", unsafe_allow_html=True)
+# タイトル
+st.markdown("## T-CLIP β")
 
 st.markdown("---")
 
@@ -626,7 +622,7 @@ def find_nearest_time(target_time: time, time_list: List[str]) -> Optional[str]:
 # 検索フォーム（クリアボタンは検索結果の下に移動）
 
 # タブで検索条件を切り替え（最新データを最初のタブに）
-tab_latest, tab_date, tab_detail, tab_performer, tab_program_type, tab_report = st.tabs(["📺 最新", "📅 日付", "🔍 キーワード", "👤 出演", "📺 番組", "📊 レポート"])
+tab_latest, tab_date, tab_detail, tab_performer, tab_program_type, tab_report = st.tabs(["📺 最新", "📅 日付", "🔍 キーワード", "👤 出演", "📺 番組", "📊 レポート生成"])
 
 # 現在時刻をタブラインの右寄せで表示
 now = get_jst_now()
@@ -4209,8 +4205,7 @@ else:
 
 # レポート生成タブ（番組タブの後ろに配置）
 with tab_report:
-    st.header("📊 AIレポート生成")
-    st.markdown("期間とテーマを選択して、A4レポートを生成します。")
+    st.markdown("期間を設定すれば、AIがレポートを生成します。")
     
     # 必要なモジュールをインポート
     REPORT_MODULES_AVAILABLE = False
@@ -4230,9 +4225,7 @@ with tab_report:
         if current_script_dir not in sys.path:
             sys.path.insert(0, current_script_dir)
         
-        from report_themes import get_theme_list, get_theme_config, get_theme_keywords
         from report_generator import (
-            extract_data_by_theme,
             analyze_keyword_frequency,
             analyze_sentiment,
             generate_summary_with_llm,
@@ -4244,15 +4237,28 @@ with tab_report:
         REPORT_MODULES_AVAILABLE = True
     except ImportError as e:
         st.error(f"レポート生成モジュールの読み込みエラー: {str(e)}")
-        st.info("必要なモジュールファイル（report_themes.py, report_generator.py, report_pdf.py）が存在するか確認してください。")
+        st.info("必要なモジュールファイル（report_generator.py, report_pdf.py）が存在するか確認してください。")
         REPORT_MODULES_AVAILABLE = False
     except Exception as e:
         st.error(f"予期しないエラーが発生しました: {str(e)}")
         REPORT_MODULES_AVAILABLE = False
     
     if REPORT_MODULES_AVAILABLE:
-        # テーマリストを取得
-        theme_list = get_theme_list()
+        # ジャンルリストを取得（ジャンル検索と同じ選択肢を使用）
+        search_options = get_search_options(_s3_client=s3_client)
+        genre_options = ["すべて"]
+        available_genres = set(search_options.get('genres', []))
+        
+        # 固定順序のジャンルを順番に追加
+        for genre in GENRE_ORDER[1:]:  # "すべて"を除く
+            if genre == "その他":
+                # 「その他」の前に、固定順序に含まれないジャンルを追加
+                for other_genre in sorted(available_genres):
+                    if other_genre not in genre_options:
+                        genre_options.append(other_genre)
+            # データベースに存在する場合のみ追加
+            if genre in available_genres:
+                genre_options.append(genre)
         
         # フォーム
         with st.form("report_generation_form"):
@@ -4272,10 +4278,10 @@ with tab_report:
                     help="レポートの終了日を選択してください"
                 )
             
-            theme_name = st.selectbox(
-                "テーマ",
-                options=theme_list,
-                help="分析するテーマを選択してください"
+            genre_name = st.selectbox(
+                "ジャンル",
+                options=genre_options,
+                help="分析するジャンルを選択してください"
             )
             
             # Groq APIキーの確認
@@ -4298,12 +4304,32 @@ with tab_report:
                         st.info("📊 データを抽出中...")
                         all_masters = list_all_master_data(s3_client)
                         
-                        master_results = extract_data_by_theme(
+                        # 期間を文字列に変換
+                        start_date_str = start_date.strftime("%Y%m%d") if start_date else None
+                        end_date_str = end_date.strftime("%Y%m%d") if end_date else None
+                        
+                        # ジャンルでフィルタリング
+                        genre_filter = genre_name if genre_name != "すべて" else ""
+                        
+                        # 検索実行
+                        master_results = search_master_data_advanced(
                             master_list=all_masters,
-                            theme_name=theme_name,
-                            start_date=start_date,
-                            end_date=end_date,
-                            search_master_data_advanced_func=search_master_data_advanced
+                            date_str="",
+                            time_str="",
+                            channel="すべて",
+                            keyword="",
+                            program_name="",
+                            performer="",
+                            genre=genre_filter,
+                            program_names=None,
+                            period_type="期間指定",
+                            start_date=start_date_str,
+                            end_date=end_date_str,
+                            weekday=None,
+                            weekdays=None,
+                            genre_program=genre_filter if genre_filter else "すべて",
+                            channels_program=[],
+                            time_tolerance_minutes=30
                         )
                         
                         if not master_results:
@@ -4322,10 +4348,11 @@ with tab_report:
                             
                             # 3. 集計処理
                             st.info("📈 データを集計中...")
-                            theme_keywords = get_theme_keywords(theme_name)
+                            # ジャンル名をキーワードとして使用
+                            genre_keywords = [genre_name] if genre_name != "すべて" else []
                             keyword_frequency = analyze_keyword_frequency(
                                 master_results,
-                                theme_keywords,
+                                genre_keywords,
                                 chunks_data
                             )
                             
@@ -4343,7 +4370,7 @@ with tab_report:
                                 period_str = f"{start_date.strftime('%Y年%m月%d日')} 〜 {end_date.strftime('%Y年%m月%d日')}"
                                 llm_analysis = generate_summary_with_llm(
                                     master_results,
-                                    theme_name,
+                                    genre_name,
                                     period_str,
                                     keyword_frequency,
                                     groq_api_key
@@ -4381,8 +4408,8 @@ with tab_report:
                             
                             # ファイル名を生成
                             timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
-                            theme_keyword = theme_name.replace("・", "_").replace(" ", "_")
-                            filename = f"{timestamp}_{theme_keyword}.pdf"
+                            genre_keyword = genre_name.replace("・", "_").replace(" ", "_").replace("/", "_")
+                            filename = f"{timestamp}_{genre_keyword}.pdf"
                             output_path = os.path.join(output_dir, filename)
                             
                             total_count = len(master_results)
@@ -4390,7 +4417,7 @@ with tab_report:
                             
                             success = create_report_pdf(
                                 output_path=output_path,
-                                theme_name=theme_name,
+                                theme_name=genre_name,
                                 start_date=start_date,
                                 end_date=end_date,
                                 summary_data={},
@@ -4433,3 +4460,14 @@ with tab_report:
                         st.error(f"❌ エラーが発生しました: {str(e)}")
                         import traceback
                         st.code(traceback.format_exc())
+
+# フッター（全画面共通）
+st.markdown("---")
+st.markdown(
+    """
+    <div style='text-align: center; color: #666; font-size: 0.9em; padding: 20px 0;'>
+    © 2025 All Rights Reserved
+    </div>
+    """,
+    unsafe_allow_html=True
+)
