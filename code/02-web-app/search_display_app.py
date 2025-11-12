@@ -61,9 +61,11 @@ script_dir = pathlib.Path(__file__).parent.absolute()
 project_root = script_dir.parent.parent  # プロジェクトルート
 
 logo_paths = [
-    str(project_root / "image" / "longTclip-imade-long-2025-11-12.png"),  # 新しいロゴファイル
+    str(project_root / "image" / "Tclip-imade-long-2025-11-12.png"),  # 新しいロゴファイル（縦長）
+    str(project_root / "image" / "Tclip-imade-wide-2025-11-12.png"),  # 新しいロゴファイル（横長）
     str(project_root / "image" / "tclipLOGO.png"),  # ユーザー指定のパス（絶対パス）
-    "image/longTclip-imade-long-2025-11-12.png",  # 相対パス（プロジェクトルートから）
+    "image/Tclip-imade-long-2025-11-12.png",  # 相対パス（プロジェクトルートから）
+    "image/Tclip-imade-wide-2025-11-12.png",  # 相対パス（プロジェクトルートから）
     "image/tclipLOGO.png",  # 相対パス（プロジェクトルートから）
     str(script_dir / "image" / "tclipLOGO.png"),  # code/02-web-app/image/tclipLOGO.png
     str(script_dir / "logo.png"),
