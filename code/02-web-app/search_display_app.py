@@ -1085,7 +1085,7 @@ with tab_performer:
         
         # フォーム送信時にセッションステートを更新
         if search_button_performer:
-            st.session_state.search_channel = channel_performer
+            st.session_state.search_channel = "すべて"  # 放送局は使用しない
             st.session_state.search_keyword = keyword_performer
             st.session_state.search_performer = performer_performer if performer_performer else ""
             # 検索時にページをリセット
@@ -1601,7 +1601,7 @@ elif search_button_program_type:
     keyword = ""
 else:
     # 検索ボタンが押されていない場合、セッションステートから取得（初期状態）
-    channel = st.session_state.get("channel_date", st.session_state.get("channel_detail", st.session_state.get("channel_performer", st.session_state.get("search_channel", "すべて"))))
+    channel = st.session_state.get("channel_date", st.session_state.get("channel_detail", st.session_state.get("search_channel", "すべて")))
     selected_date = st.session_state.get("date_input", st.session_state.get("search_date", None))
     selected_time = st.session_state.get("time_input", None)
     if selected_time is None and st.session_state.get("search_time"):
