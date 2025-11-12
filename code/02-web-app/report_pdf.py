@@ -90,16 +90,7 @@ def register_japanese_font():
                     except Exception:
                         continue
     
-    # フォントが見つからない場合は、reportlabのデフォルト日本語フォントを試す
-    try:
-        # reportlabのデフォルト日本語フォント（存在する場合）
-        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-        pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
-        print("[DEBUG] UnicodeCIDFont 'HeiseiKakuGo-W5' を登録しました")
-        return 'HeiseiKakuGo-W5'
-    except Exception as e:
-        print(f"[DEBUG] UnicodeCIDFontの登録に失敗: {e}")
-        pass
+    # UnicodeCIDFontはcreate_report_pdf()内で優先的に試すため、ここでは試さない
     
     # 最後の手段: システムフォントを検索
     import platform
@@ -187,9 +178,20 @@ def create_report_pdf(
         return False
     
     try:
-        # 日本語フォントを登録
-        font_name = register_japanese_font()
-        print(f"[DEBUG] 登録されたフォント: {font_name}")
+        # 日本語フォントを登録（UnicodeCIDFontを優先）
+        font_name = None
+        
+        # まずUnicodeCIDFontを試す（最も確実）
+        try:
+            from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+            pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
+            font_name = 'HeiseiKakuGo-W5'
+            print(f"[DEBUG] UnicodeCIDFont 'HeiseiKakuGo-W5' を登録しました")
+        except Exception as e:
+            print(f"[DEBUG] UnicodeCIDFontの登録に失敗: {e}")
+            # 次にregister_japanese_font()を試す
+            font_name = register_japanese_font()
+            print(f"[DEBUG] register_japanese_font()で登録されたフォント: {font_name}")
         
         if not font_name:
             # フォントが見つからない場合はデフォルトを使用
@@ -197,7 +199,9 @@ def create_report_pdf(
             print(f"[DEBUG] フォントが見つからないため、デフォルトフォントを使用: {font_name}")
         
         # デバッグ: 利用可能なフォントを確認
-        print(f"[DEBUG] 利用可能なフォント: {list(pdfmetrics.getRegisteredFontNames())[:10]}")
+        registered_fonts = list(pdfmetrics.getRegisteredFontNames())
+        print(f"[DEBUG] 利用可能なフォント: {registered_fonts[:10]}")
+        print(f"[DEBUG] 使用するフォント: {font_name}")
         
         # PDFドキュメントを作成
         doc = SimpleDocTemplate(

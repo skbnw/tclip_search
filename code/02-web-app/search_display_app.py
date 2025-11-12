@@ -622,18 +622,6 @@ def find_nearest_time(target_time: time, time_list: List[str]) -> Optional[str]:
 # 検索フォーム（クリアボタンは検索結果の下に移動）
 
 # タブで検索条件を切り替え（最新データを最初のタブに）
-# タブを右寄せにするためのCSS
-st.markdown("""
-<style>
-    .stTabs [data-baseweb="tab-list"] {
-        justify-content: flex-end;
-    }
-    .stTabs [data-baseweb="tab"] {
-        margin-left: auto;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 tab_latest, tab_date, tab_detail, tab_performer, tab_program_type, tab_report = st.tabs(["📺 最新", "📅 日付", "🔍 キーワード", "👤 出演", "📺 番組", "📊 レポート生成"])
 
 # 現在時刻をタブラインの右寄せで表示
@@ -4441,10 +4429,11 @@ with tab_report:
                             output_dir = os.path.join(project_root, "output", "03-report")
                             os.makedirs(output_dir, exist_ok=True)
                             
-                            # ファイル名を生成
-                            timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
-                            genre_keyword = genre_name.replace("・", "_").replace(" ", "_").replace("/", "_")
-                            filename = f"{timestamp}_{genre_keyword}.pdf"
+                            # ファイル名を生成（開始日_終了日_ジャンル.pdf）
+                            start_date_str = start_date.strftime("%Y%m%d")
+                            end_date_str = end_date.strftime("%Y%m%d")
+                            genre_keyword = genre_name.replace("・", "_").replace(" ", "_").replace("/", "_").replace("／", "_")
+                            filename = f"{start_date_str}_{end_date_str}_{genre_keyword}.pdf"
                             output_path = os.path.join(output_dir, filename)
                             
                             total_count = len(master_results)
