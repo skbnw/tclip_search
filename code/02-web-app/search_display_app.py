@@ -21,6 +21,8 @@ import numpy as np
 from typing import Dict, List, Optional, Tuple
 from io import BytesIO
 from datetime import date, time, datetime, timedelta
+import tempfile
+import shutil
 import pytz
 
 # ベクトル検索用のライブラリ（オプション）
@@ -59,12 +61,10 @@ st.set_page_config(
 
 # タイトル（アスキーアート表示）
 st.markdown("""
-```
-#========================================#
-#  T-CLIP  β  Television Content Intelligence #
-#========================================#
-```
-""")
+<div style='font-family: monospace;'>
+#=#=#  T-CLIP  β  Television Content Intelligence #=#=#
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -626,7 +626,7 @@ def find_nearest_time(target_time: time, time_list: List[str]) -> Optional[str]:
 # 検索フォーム（クリアボタンは検索結果の下に移動）
 
 # タブで検索条件を切り替え（最新データを最初のタブに）
-tab_latest, tab_date, tab_detail, tab_performer, tab_program_type = st.tabs(["📺 最新", "📅 日付", "🔍 キーワード", "👤 出演", "📺 番組"])
+tab_latest, tab_date, tab_detail, tab_performer, tab_program_type, tab_report = st.tabs(["📺 最新", "📅 日付", "🔍 キーワード", "👤 出演", "📺 番組", "📊 レポート"])
 
 # 現在時刻をタブラインの右寄せで表示
 now = get_jst_now()
@@ -872,19 +872,19 @@ with tab_detail:
             # ベクトル検索のオプション
             if SENTENCE_TRANSFORMERS_AVAILABLE:
                 use_vector_search = st.checkbox(
-                    "ベクトル検索を使用",
+                    "ベクトル検索",
                     value=st.session_state.get("use_vector_search", False),
-                    help="ベクトル類似度検索を使用します（意味的な類似性を検出）",
+                    help="意味的な類似性を検索します",
                     key="use_vector_search_detail"
                 )
                 st.session_state.use_vector_search = use_vector_search
             else:
                 # sentence-transformersが利用できない場合でも、チェックボックスを表示（無効化）
                 use_vector_search = st.checkbox(
-                    "ベクトル検索を使用（sentence-transformersが必要）",
+                    "ベクトル検索（sentence-transformersが必要）",
                     value=False,
                     disabled=True,
-                    help="ベクトル検索を使用するには、sentence-transformersライブラリが必要です。インストール方法: pip install sentence-transformers",
+                    help="意味的な類似性を検索します。sentence-transformersライブラリが必要です。インストール方法: pip install sentence-transformers",
                     key="use_vector_search_detail_disabled"
                 )
                 st.session_state.use_vector_search = False
@@ -1071,19 +1071,19 @@ with tab_performer:
             # ベクトル検索のオプション
             if SENTENCE_TRANSFORMERS_AVAILABLE:
                 use_vector_search = st.checkbox(
-                    "ベクトル検索を使用",
+                    "ベクトル検索",
                     value=st.session_state.get("use_vector_search", False),
-                    help="ベクトル類似度検索を使用します（意味的な類似性を検出）",
+                    help="意味的な類似性を検索します",
                     key="use_vector_search_performer"
                 )
                 st.session_state.use_vector_search = use_vector_search
             else:
                 # sentence-transformersが利用できない場合でも、チェックボックスを表示（無効化）
                 use_vector_search = st.checkbox(
-                    "ベクトル検索を使用（sentence-transformersが必要）",
+                    "ベクトル検索（sentence-transformersが必要）",
                     value=False,
                     disabled=True,
-                    help="ベクトル検索を使用するには、sentence-transformersライブラリが必要です。インストール方法: pip install sentence-transformers",
+                    help="意味的な類似性を検索します。sentence-transformersライブラリが必要です。インストール方法: pip install sentence-transformers",
                     key="use_vector_search_performer_disabled"
                 )
                 st.session_state.use_vector_search = False
@@ -4206,3 +4206,230 @@ else:
     
     この期間外の日付で検索した場合、検索結果が表示されない可能性があります。
     """)
+
+# レポート生成タブ（番組タブの後ろに配置）
+with tab_report:
+    st.header("📊 AIレポート生成")
+    st.markdown("期間とテーマを選択して、A4レポートを生成します。")
+    
+    # 必要なモジュールをインポート
+    REPORT_MODULES_AVAILABLE = False
+    try:
+        # 現在のスクリプトのディレクトリをパスに追加
+        import sys
+        import os
+        import pathlib
+        
+        # スクリプトのディレクトリを取得
+        try:
+            script_path = os.path.abspath(__file__)
+            current_script_dir = os.path.dirname(script_path)
+        except:
+            current_script_dir = os.path.join(os.getcwd(), "code", "02-web-app")
+        
+        if current_script_dir not in sys.path:
+            sys.path.insert(0, current_script_dir)
+        
+        from report_themes import get_theme_list, get_theme_config, get_theme_keywords
+        from report_generator import (
+            extract_data_by_theme,
+            analyze_keyword_frequency,
+            analyze_sentiment,
+            generate_summary_with_llm,
+            generate_charts,
+            aggregate_metadata,
+            extract_key_quotes
+        )
+        from report_pdf import create_report_pdf
+        REPORT_MODULES_AVAILABLE = True
+    except ImportError as e:
+        st.error(f"レポート生成モジュールの読み込みエラー: {str(e)}")
+        st.info("必要なモジュールファイル（report_themes.py, report_generator.py, report_pdf.py）が存在するか確認してください。")
+        REPORT_MODULES_AVAILABLE = False
+    except Exception as e:
+        st.error(f"予期しないエラーが発生しました: {str(e)}")
+        REPORT_MODULES_AVAILABLE = False
+    
+    if REPORT_MODULES_AVAILABLE:
+        # テーマリストを取得
+        theme_list = get_theme_list()
+        
+        # フォーム
+        with st.form("report_generation_form"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                start_date = st.date_input(
+                    "開始日",
+                    value=date.today() - timedelta(days=7),
+                    help="レポートの開始日を選択してください"
+                )
+            
+            with col2:
+                end_date = st.date_input(
+                    "終了日",
+                    value=date.today(),
+                    help="レポートの終了日を選択してください"
+                )
+            
+            theme_name = st.selectbox(
+                "テーマ",
+                options=theme_list,
+                help="分析するテーマを選択してください"
+            )
+            
+            # Groq APIキーの確認
+            groq_api_key = None
+            if hasattr(st, 'secrets') and 'groq' in st.secrets and 'api_key' in st.secrets.groq:
+                groq_api_key = st.secrets.groq.api_key
+            else:
+                st.warning("⚠️ Groq APIキーが設定されていません。LLM分析は利用できません。")
+            
+            generate_button = st.form_submit_button("📄 レポート生成", use_container_width=True)
+        
+        if generate_button:
+            if start_date > end_date:
+                st.error("❌ 開始日が終了日より後になっています。")
+            else:
+                # レポート生成処理
+                with st.spinner("レポートを生成中..."):
+                    try:
+                        # 1. データ抽出
+                        st.info("📊 データを抽出中...")
+                        all_masters = list_all_master_data(s3_client)
+                        
+                        master_results = extract_data_by_theme(
+                            master_list=all_masters,
+                            theme_name=theme_name,
+                            start_date=start_date,
+                            end_date=end_date,
+                            search_master_data_advanced_func=search_master_data_advanced
+                        )
+                        
+                        if not master_results:
+                            st.warning("⚠️ 該当するデータが見つかりませんでした。")
+                        else:
+                            st.success(f"✅ {len(master_results)}件のデータを抽出しました。")
+                            
+                            # 2. チャンクデータを取得
+                            st.info("📑 チャンクデータを取得中...")
+                            chunks_data = {}
+                            for master_data in master_results:
+                                doc_id = master_data.get('doc_id', '')
+                                if doc_id:
+                                    chunks = get_chunk_data(s3_client, doc_id)
+                                    chunks_data[doc_id] = chunks
+                            
+                            # 3. 集計処理
+                            st.info("📈 データを集計中...")
+                            theme_keywords = get_theme_keywords(theme_name)
+                            keyword_frequency = analyze_keyword_frequency(
+                                master_results,
+                                theme_keywords,
+                                chunks_data
+                            )
+                            
+                            # 4. トーン分析
+                            st.info("😊 トーン分析中...")
+                            sentiment_ratio = analyze_sentiment(master_results, chunks_data)
+                            
+                            # 5. metadataベースの集計
+                            aggregated_data = aggregate_metadata(master_results)
+                            channel_counts = aggregated_data.get('channel_counts', {})
+                            
+                            # 6. LLM分析
+                            if groq_api_key:
+                                st.info("🤖 LLMで分析中...")
+                                period_str = f"{start_date.strftime('%Y年%m月%d日')} 〜 {end_date.strftime('%Y年%m月%d日')}"
+                                llm_analysis = generate_summary_with_llm(
+                                    master_results,
+                                    theme_name,
+                                    period_str,
+                                    keyword_frequency,
+                                    groq_api_key
+                                )
+                            else:
+                                llm_analysis = {
+                                    'summary': "LLM分析が利用できません。",
+                                    'topics': [],
+                                    'key_programs': [],
+                                    'recommendations': "Groq APIキーを設定してください。"
+                                }
+                            
+                            # 7. 重要な引用を抽出
+                            st.info("💬 重要な発言を抽出中...")
+                            key_quotes = extract_key_quotes(master_results, chunks_data, max_quotes=3)
+                            
+                            # 8. グラフ生成
+                            st.info("📊 グラフを生成中...")
+                            # 一時ディレクトリを作成
+                            import tempfile
+                            temp_dir = tempfile.mkdtemp()
+                            
+                            chart_paths = generate_charts(
+                                keyword_frequency,
+                                sentiment_ratio,
+                                channel_counts,
+                                temp_dir
+                            )
+                            
+                            # 9. PDF生成
+                            st.info("📄 PDFを生成中...")
+                            # 出力ディレクトリを作成
+                            output_dir = os.path.join(project_root, "output", "03-report")
+                            os.makedirs(output_dir, exist_ok=True)
+                            
+                            # ファイル名を生成
+                            timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+                            theme_keyword = theme_name.replace("・", "_").replace(" ", "_")
+                            filename = f"{timestamp}_{theme_keyword}.pdf"
+                            output_path = os.path.join(output_dir, filename)
+                            
+                            total_count = len(master_results)
+                            total_duration_minutes = aggregated_data.get('total_duration_minutes', 0)
+                            
+                            success = create_report_pdf(
+                                output_path=output_path,
+                                theme_name=theme_name,
+                                start_date=start_date,
+                                end_date=end_date,
+                                summary_data={},
+                                llm_analysis=llm_analysis,
+                                keyword_frequency=keyword_frequency,
+                                sentiment_ratio=sentiment_ratio,
+                                channel_counts=channel_counts,
+                                key_quotes=key_quotes,
+                                chart_paths=chart_paths,
+                                total_count=total_count,
+                                total_duration_minutes=total_duration_minutes
+                            )
+                            
+                            if success:
+                                st.success(f"✅ レポートが生成されました！")
+                                
+                                # PDFファイルをダウンロード可能にする
+                                with open(output_path, 'rb') as pdf_file:
+                                    pdf_bytes = pdf_file.read()
+                                    st.download_button(
+                                        label="📥 PDFをダウンロード",
+                                        data=pdf_bytes,
+                                        file_name=filename,
+                                        mime="application/pdf",
+                                        use_container_width=True
+                                    )
+                                
+                                st.info(f"📁 保存先: {output_path}")
+                                
+                                # 一時ファイルをクリーンアップ
+                                import shutil
+                                try:
+                                    shutil.rmtree(temp_dir)
+                                except Exception:
+                                    pass
+                            else:
+                                st.error("❌ PDFの生成に失敗しました。")
+                    
+                    except Exception as e:
+                        st.error(f"❌ エラーが発生しました: {str(e)}")
+                        import traceback
+                        st.code(traceback.format_exc())
