@@ -6,6 +6,8 @@ Streamlitを使用して、S3バケット内のデータを検索・表示しま
 - マスターデータの表示
 - チャンクデータの表示
 - 画像の表示
+
+Version: 2025-11-12 - Logo removed, ASCII art title
 """
 
 import streamlit as st
