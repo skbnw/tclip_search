@@ -4284,6 +4284,13 @@ with tab_report:
                 help="分析するジャンルを選択してください"
             )
             
+            # 実験モード（10件のみ処理）
+            experimental_mode = st.checkbox(
+                "🧪 実験モード（10件のみ処理）",
+                value=False,
+                help="チェックすると、最初の10件のデータのみを処理します。処理時間を短縮できます。"
+            )
+            
             # Groq APIキーの確認
             groq_api_key = None
             if hasattr(st, 'secrets') and 'groq' in st.secrets and 'api_key' in st.secrets.groq:
@@ -4331,6 +4338,12 @@ with tab_report:
                             channels_program=[],
                             time_tolerance_minutes=30
                         )
+                        
+                        # 実験モード：10件のみ処理
+                        if experimental_mode and master_results:
+                            original_count = len(master_results)
+                            master_results = master_results[:10]
+                            st.info(f"🧪 実験モード: {original_count}件中{len(master_results)}件を処理します。")
                         
                         if not master_results:
                             st.warning("⚠️ 該当するデータが見つかりませんでした。")

@@ -30,30 +30,74 @@ except ImportError:
 
 
 def register_japanese_font():
-    """日本語フォントを登録"""
+    """日本語フォントを登録（Windows/Linux対応）"""
     if not REPORTLAB_AVAILABLE:
         return None
     
-    font_dir = Path('C:/Windows/Fonts')
-    font_files = [
-        ('msgothic', font_dir / 'msgothic.ttc'),
-        ('yugothic', font_dir / 'yugothic.ttf'),
-        ('meiryo', font_dir / 'meiryo.ttc'),
+    # Windows環境のフォントパス
+    windows_font_dirs = [
+        Path('C:/Windows/Fonts'),
+        Path('C:/WINDOWS/Fonts'),
     ]
     
-    for font_name, font_path in font_files:
-        if font_path.exists():
-            try:
-                # TTCファイルの場合は最初のフォントを使用
-                if font_path.suffix == '.ttc':
-                    # TTCファイルは直接読み込めないため、代替手段を使用
-                    # ここでは.ttfファイルを優先
-                    continue
-                else:
-                    pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
-                    return font_name
-            except Exception:
-                continue
+    # Linux環境のフォントパス（Streamlit Cloud対応）
+    linux_font_dirs = [
+        Path('/usr/share/fonts/truetype/noto'),
+        Path('/usr/share/fonts/truetype/dejavu'),
+        Path('/usr/share/fonts/opentype/noto'),
+        Path('/System/Library/Fonts'),  # macOS
+        Path.home() / '.fonts',
+    ]
+    
+    # フォントファイルの候補
+    font_candidates = [
+        # Windows
+        ('msgothic', 'msgothic.ttc'),
+        ('yugothic', 'yugothic.ttf'),
+        ('meiryo', 'meiryo.ttc'),
+        # Linux/Notoフォント
+        ('notosans', 'NotoSansCJK-Regular.ttc'),
+        ('notosans', 'NotoSansCJK-Regular.otf'),
+        ('notosans', 'NotoSans-Regular.ttf'),
+        ('dejavu', 'DejaVuSans.ttf'),
+    ]
+    
+    # Windowsフォントを検索
+    for font_dir in windows_font_dirs:
+        if font_dir.exists():
+            for font_name, font_file in font_candidates:
+                font_path = font_dir / font_file
+                if font_path.exists():
+                    try:
+                        if font_path.suffix == '.ttc':
+                            # TTCファイルは直接読み込めないためスキップ
+                            continue
+                        else:
+                            pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
+                            return font_name
+                    except Exception:
+                        continue
+    
+    # Linuxフォントを検索
+    for font_dir in linux_font_dirs:
+        if font_dir.exists():
+            for font_name, font_file in font_candidates:
+                font_path = font_dir / font_file
+                if font_path.exists():
+                    try:
+                        pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
+                        return font_name
+                    except Exception:
+                        continue
+    
+    # フォントが見つからない場合は、reportlabのデフォルト日本語フォントを試す
+    try:
+        # reportlabのデフォルト日本語フォント（存在する場合）
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
+        return 'HeiseiKakuGo-W5'
+    except Exception:
+        pass
     
     # フォントが見つからない場合はデフォルトを使用（日本語は表示されない可能性あり）
     return None
