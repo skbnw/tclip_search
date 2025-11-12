@@ -4402,6 +4402,16 @@ with tab_report:
                             
                             # 9. PDF生成
                             st.info("📄 PDFを生成中...")
+                            # 出力ディレクトリを作成（Streamlit Cloud対応）
+                            # プロジェクトルートを取得
+                            try:
+                                # スクリプトのディレクトリからプロジェクトルートを取得
+                                script_dir = os.path.dirname(os.path.abspath(__file__))
+                                project_root = os.path.dirname(os.path.dirname(script_dir))
+                            except:
+                                # __file__が利用できない場合（Streamlit Cloudなど）は一時ディレクトリを使用
+                                project_root = temp_dir
+                            
                             # 出力ディレクトリを作成
                             output_dir = os.path.join(project_root, "output", "03-report")
                             os.makedirs(output_dir, exist_ok=True)
