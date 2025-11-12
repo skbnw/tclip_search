@@ -1109,8 +1109,7 @@ with tab_performer:
             if 'use_vector_search' in st.session_state:
                 st.session_state.use_vector_search = False
             # 各タブの入力フィールドもクリア（ウィジェットのkeyを削除）
-            if 'channel_performer' in st.session_state:
-                del st.session_state.channel_performer
+            # channel_performerは削除済み（出演者タブから放送局を削除したため）
             if 'keyword_performer' in st.session_state:
                 del st.session_state.keyword_performer
             if 'performer_performer' in st.session_state:
