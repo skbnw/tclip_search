@@ -61,7 +61,7 @@ st.set_page_config(
 st.markdown("""
 ```
 #========================================#
-#  T-CLIP  β  Television Content Intelligence
+#  T-CLIP  β  Television Content Intelligence #
 #========================================#
 ```
 """)
