@@ -622,6 +622,18 @@ def find_nearest_time(target_time: time, time_list: List[str]) -> Optional[str]:
 # 検索フォーム（クリアボタンは検索結果の下に移動）
 
 # タブで検索条件を切り替え（最新データを最初のタブに）
+# タブを右寄せにするためのCSS
+st.markdown("""
+<style>
+    .stTabs [data-baseweb="tab-list"] {
+        justify-content: flex-end;
+    }
+    .stTabs [data-baseweb="tab"] {
+        margin-left: auto;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 tab_latest, tab_date, tab_detail, tab_performer, tab_program_type, tab_report = st.tabs(["📺 最新", "📅 日付", "🔍 キーワード", "👤 出演", "📺 番組", "📊 レポート生成"])
 
 # 現在時刻をタブラインの右寄せで表示
@@ -4437,6 +4449,25 @@ with tab_report:
                             
                             total_count = len(master_results)
                             total_duration_minutes = aggregated_data.get('total_duration_minutes', 0)
+                            
+                            # 出力前にデータをプリント表示
+                            st.info("📋 レポート生成前のデータ確認")
+                            with st.expander("📊 生成されるレポートの内容を確認", expanded=False):
+                                st.write("**テーマ（ジャンル）**:", genre_name)
+                                st.write("**期間**:", f"{start_date} 〜 {end_date}")
+                                st.write("**総件数**:", total_count)
+                                st.write("**総放送時間**:", f"{total_duration_minutes}分")
+                                st.write("**キーワード頻度（上位5件）**:")
+                                sorted_keywords = sorted(keyword_frequency.items(), key=lambda x: x[1], reverse=True)[:5]
+                                for kw, count in sorted_keywords:
+                                    st.write(f"  - {kw}: {count}回")
+                                st.write("**トーン比率**:")
+                                st.write(f"  - ポジティブ: {sentiment_ratio.get('positive', 0)*100:.1f}%")
+                                st.write(f"  - ネガティブ: {sentiment_ratio.get('negative', 0)*100:.1f}%")
+                                st.write(f"  - 中立: {sentiment_ratio.get('neutral', 0)*100:.1f}%")
+                                st.write("**放送局別件数**:")
+                                for channel, count in channel_counts.items():
+                                    st.write(f"  - {channel}: {count}件")
                             
                             success = create_report_pdf(
                                 output_path=output_path,

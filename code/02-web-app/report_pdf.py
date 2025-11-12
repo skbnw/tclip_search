@@ -95,11 +95,32 @@ def register_japanese_font():
         # reportlabのデフォルト日本語フォント（存在する場合）
         from reportlab.pdfbase.cidfonts import UnicodeCIDFont
         pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
+        print("[DEBUG] UnicodeCIDFont 'HeiseiKakuGo-W5' を登録しました")
         return 'HeiseiKakuGo-W5'
-    except Exception:
+    except Exception as e:
+        print(f"[DEBUG] UnicodeCIDFontの登録に失敗: {e}")
         pass
     
+    # 最後の手段: システムフォントを検索
+    import platform
+    if platform.system() == 'Linux':
+        # Linux環境で利用可能なフォントを検索
+        try:
+            import subprocess
+            result = subprocess.run(['fc-list', ':lang=ja'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0 and result.stdout:
+                # 最初に見つかった日本語フォントを使用
+                font_path = result.stdout.split('\n')[0].split(':')[0]
+                if font_path and Path(font_path).exists():
+                    pdfmetrics.registerFont(TTFont('system_japanese', font_path))
+                    print(f"[DEBUG] システムフォントを使用: {font_path}")
+                    return 'system_japanese'
+        except Exception as e:
+            print(f"[DEBUG] システムフォントの検索に失敗: {e}")
+            pass
+    
     # フォントが見つからない場合はデフォルトを使用（日本語は表示されない可能性あり）
+    print("[DEBUG] 日本語フォントが見つかりませんでした。デフォルトフォントを使用します。")
     return None
 
 
@@ -168,9 +189,15 @@ def create_report_pdf(
     try:
         # 日本語フォントを登録
         font_name = register_japanese_font()
+        print(f"[DEBUG] 登録されたフォント: {font_name}")
+        
         if not font_name:
             # フォントが見つからない場合はデフォルトを使用
             font_name = 'Helvetica'
+            print(f"[DEBUG] フォントが見つからないため、デフォルトフォントを使用: {font_name}")
+        
+        # デバッグ: 利用可能なフォントを確認
+        print(f"[DEBUG] 利用可能なフォント: {list(pdfmetrics.getRegisteredFontNames())[:10]}")
         
         # PDFドキュメントを作成
         doc = SimpleDocTemplate(
