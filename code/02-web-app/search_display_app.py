@@ -95,48 +95,6 @@ for logo_path in logo_paths:
 
 # レスポンシブ対応のロゴ表示（CSSで画面サイズに応じてサイズを変更）
 if logo_found:
-    st.markdown("""
-    <style>
-    /* ロゴのレスポンシブ対応 */
-    .logo-container {
-        display: flex;
-        justify-content: flex-start;
-        align-items: center;
-        margin-bottom: 1rem;
-    }
-    
-    .logo-image {
-        max-width: 300px;  /* PC用の最大幅 */
-        height: auto;
-        width: auto;
-    }
-    
-    /* タブレット（768px以下） */
-    @media (max-width: 768px) {
-        .logo-image {
-            max-width: 250px;
-        }
-    }
-    
-    /* スマホ（480px以下） */
-    @media (max-width: 480px) {
-        .logo-image {
-            max-width: 200px;
-        }
-    }
-    
-    /* 小さなスマホ（360px以下） */
-    @media (max-width: 360px) {
-        .logo-image {
-            max-width: 180px;
-        }
-    }
-    </style>
-    <div class="logo-container">
-        <img src="data:image/png;base64,{logo_base64}" class="logo-image" alt="番組データ検索β" />
-    </div>
-    """.format(logo_base64=""), unsafe_allow_html=True)
-    
     # ロゴ画像をBase64エンコードして埋め込む
     try:
         import base64
@@ -196,7 +154,11 @@ if logo_found:
             """, unsafe_allow_html=True)
     except Exception as e:
         # Base64エンコードに失敗した場合は通常の画像表示にフォールバック
-        st.image(logo_used_path, width=300, use_container_width=False)
+        try:
+            st.image(logo_used_path, width=300, use_container_width=False)
+        except Exception:
+            # 画像表示も失敗した場合はテキストタイトルを表示
+            st.title("番組データ検索β")
 else:
     # ロゴが見つからない場合はテキストタイトルを表示
     st.title("番組データ検索β")
