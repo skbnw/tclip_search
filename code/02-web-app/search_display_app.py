@@ -4284,11 +4284,11 @@ with tab_report:
                 help="分析するジャンルを選択してください"
             )
             
-            # 実験モード（10件のみ処理）
+            # 実験モード（5件ランダム選択）
             experimental_mode = st.checkbox(
-                "🧪 実験モード（10件のみ処理）",
+                "🧪 実験モード（5件ランダム選択）",
                 value=False,
-                help="チェックすると、最初の10件のデータのみを処理します。処理時間を短縮できます。"
+                help="チェックすると、5件のデータをランダムに選択して処理します。処理時間を短縮できます。"
             )
             
             # Groq APIキーの確認
@@ -4339,11 +4339,13 @@ with tab_report:
                             time_tolerance_minutes=30
                         )
                         
-                        # 実験モード：10件のみ処理
+                        # 実験モード：5件ランダム選択
                         if experimental_mode and master_results:
+                            import random
                             original_count = len(master_results)
-                            master_results = master_results[:10]
-                            st.info(f"🧪 実験モード: {original_count}件中{len(master_results)}件を処理します。")
+                            if original_count > 5:
+                                master_results = random.sample(master_results, 5)
+                            st.info(f"🧪 実験モード: {original_count}件中{len(master_results)}件をランダムに処理します。")
                         
                         if not master_results:
                             st.warning("⚠️ 該当するデータが見つかりませんでした。")
@@ -4429,11 +4431,10 @@ with tab_report:
                             output_dir = os.path.join(project_root, "output", "03-report")
                             os.makedirs(output_dir, exist_ok=True)
                             
-                            # ファイル名を生成（開始日_終了日_ジャンル.pdf）
-                            start_date_str = start_date.strftime("%Y%m%d")
-                            end_date_str = end_date.strftime("%Y%m%d")
+                            # ファイル名を生成（tclip_report_日付など.pdf）
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
                             genre_keyword = genre_name.replace("・", "_").replace(" ", "_").replace("/", "_").replace("／", "_")
-                            filename = f"{start_date_str}_{end_date_str}_{genre_keyword}.pdf"
+                            filename = f"tclip_report_{timestamp}_{genre_keyword}.pdf"
                             output_path = os.path.join(output_dir, filename)
                             
                             total_count = len(master_results)

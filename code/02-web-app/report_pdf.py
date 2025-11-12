@@ -178,32 +178,11 @@ def create_report_pdf(
         return False
     
     try:
-        # 日本語フォントを登録（UnicodeCIDFontを優先）
-        font_name = None
+        # Use standard Helvetica font for English output (no Japanese font needed)
+        font_name = 'Helvetica'
+        print(f"[DEBUG] Using standard font: {font_name}")
         
-        # まずUnicodeCIDFontを試す（最も確実）
-        try:
-            from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-            pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
-            font_name = 'HeiseiKakuGo-W5'
-            print(f"[DEBUG] UnicodeCIDFont 'HeiseiKakuGo-W5' を登録しました")
-        except Exception as e:
-            print(f"[DEBUG] UnicodeCIDFontの登録に失敗: {e}")
-            # 次にregister_japanese_font()を試す
-            font_name = register_japanese_font()
-            print(f"[DEBUG] register_japanese_font()で登録されたフォント: {font_name}")
-        
-        if not font_name:
-            # フォントが見つからない場合はデフォルトを使用
-            font_name = 'Helvetica'
-            print(f"[DEBUG] フォントが見つからないため、デフォルトフォントを使用: {font_name}")
-        
-        # デバッグ: 利用可能なフォントを確認
-        registered_fonts = list(pdfmetrics.getRegisteredFontNames())
-        print(f"[DEBUG] 利用可能なフォント: {registered_fonts[:10]}")
-        print(f"[DEBUG] 使用するフォント: {font_name}")
-        
-        # PDFドキュメントを作成
+        # Create PDF document
         doc = SimpleDocTemplate(
             output_path,
             pagesize=A4,
@@ -255,64 +234,64 @@ def create_report_pdf(
         # ストーリー（コンテンツ）を構築
         story = []
         
-        # タイトル
-        title_text = f"今週のテレビ報道レポート（{theme_name}）"
+        # Title
+        title_text = f"TV Broadcast Report ({theme_name})"
         story.append(Paragraph(title_text, title_style))
         story.append(Spacer(1, 3*mm))
         
-        # 期間・対象カテゴリー・作成日・出典
-        period_str = f"{format_date_japanese(start_date)} 〜 {format_date_japanese(end_date)}"
-        created_date = datetime.now().strftime("%Y年%m月%d日")
+        # Period, Category, Created Date, Source
+        period_str = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+        created_date = datetime.now().strftime("%Y-%m-%d")
         
-        channels_str = "、".join(list(channel_counts.keys())[:6]) if channel_counts else "NHK総合・日本テレビ・TBS・フジテレビ・テレビ朝日・テレビ東京"
+        channels_str = ", ".join(list(channel_counts.keys())[:6]) if channel_counts else "NHK, NTV, TBS, Fuji TV, TV Asahi, TV Tokyo"
         
         info_text = f"""
-        <b>期間:</b> {period_str}<br/>
-        <b>対象カテゴリー:</b> {theme_name}<br/>
-        <b>作成日:</b> {created_date}<br/>
-        <b>出典:</b> {channels_str}
+        <b>Period:</b> {period_str}<br/>
+        <b>Category:</b> {theme_name}<br/>
+        <b>Created Date:</b> {created_date}<br/>
+        <b>Source:</b> {channels_str}
         """
         story.append(Paragraph(info_text, normal_style))
         story.append(Spacer(1, 5*mm))
         
-        # 1. サマリー
-        story.append(Paragraph("<b>【1. サマリー（Executive Summary）】</b>", heading_style))
+        # 1. Executive Summary
+        story.append(Paragraph("<b>1. Executive Summary</b>", heading_style))
         
-        # キーワード頻出上位
+        # Top keywords
         top_keywords = sorted(keyword_frequency.items(), key=lambda x: x[1], reverse=True)[:3]
-        keywords_str = "、".join([f"「{kw}（{cnt}回）」" for kw, cnt in top_keywords])
+        keywords_str = ", ".join([f'"{kw}" ({cnt} times)' for kw, cnt in top_keywords])
         
-        # 景況感（トーン比率から判定）
+        # Sentiment (from tone ratio)
         if sentiment_ratio:
             positive_ratio = sentiment_ratio.get('positive', 0.0)
             negative_ratio = sentiment_ratio.get('negative', 0.0)
             if negative_ratio > 0.4:
-                sentiment_str = "「慎重・やや悲観的」"
+                sentiment_str = "cautious and somewhat pessimistic"
             elif positive_ratio > 0.4:
-                sentiment_str = "「楽観的」"
+                sentiment_str = "optimistic"
             else:
-                sentiment_str = "「中立・慎重」"
+                sentiment_str = "neutral and cautious"
         else:
-            sentiment_str = "「中立」"
+            sentiment_str = "neutral"
         
         summary_text = f"""
-        今週は{theme_name}に関連する報道が全局で{total_count}件。<br/>
-        キーワード頻出上位は{keywords_str}。<br/>
-        {llm_analysis.get('summary', '分析結果がありません。')}<br/>
-        全体的に景況感は{sentiment_str}。
+        This week, there were {total_count} reports related to {theme_name} across all channels.<br/>
+        Top keywords: {keywords_str}.<br/>
+        {llm_analysis.get('summary', 'No analysis results available.')}<br/>
+        Overall sentiment is {sentiment_str}.
         """
         story.append(Paragraph(summary_text, normal_style))
         story.append(Spacer(1, 5*mm))
         
-        # 2. トピック別分析
-        story.append(Paragraph("<b>【2. トピック別分析（Topic Highlights）】</b>", heading_style))
+        # 2. Topic Highlights
+        story.append(Paragraph("<b>2. Topic Highlights</b>", heading_style))
         
         topics = llm_analysis.get('topics', [])
         if topics:
-            # 表のデータを準備
-            table_data = [['トピック', '概要', '出演者／発言', '局・番組名', '放送日時']]
+            # Prepare table data
+            table_data = [['Topic', 'Overview', 'Speaker/Statement', 'Channel/Program', 'Broadcast Date/Time']]
             
-            for topic in topics[:5]:  # 最大5トピック
+            for topic in topics[:5]:  # Maximum 5 topics
                 topic_name = topic.get('name', '')
                 overview = topic.get('overview', '')
                 details = topic.get('details', '')
@@ -351,14 +330,14 @@ def create_report_pdf(
             ]))
             story.append(table)
         else:
-            story.append(Paragraph("トピックデータがありません。", normal_style))
+            story.append(Paragraph("No topic data available.", normal_style))
         
         story.append(Spacer(1, 5*mm))
         
-        # 3. トレンド可視化
-        story.append(Paragraph("<b>【3. トレンド可視化（Graph / AI自動生成）】</b>", heading_style))
+        # 3. Trend Visualization
+        story.append(Paragraph("<b>3. Trend Visualization (Graph / AI Generated)</b>", heading_style))
         
-        # グラフを挿入
+        # Insert charts
         if 'keyword' in chart_paths and os.path.exists(chart_paths['keyword']):
             try:
                 img = Image(chart_paths['keyword'], width=80*mm, height=50*mm)
@@ -384,35 +363,35 @@ def create_report_pdf(
         
         story.append(Spacer(1, 5*mm))
         
-        # 4. 発言トランスクリプト抜粋
-        story.append(Paragraph("<b>【4. 発言トランスクリプト抜粋】</b>", heading_style))
+        # 4. Key Quotes
+        story.append(Paragraph("<b>4. Key Quotes</b>", heading_style))
         
         if key_quotes:
             for quote in key_quotes:
-                quote_text = f"「{quote.get('quote', '')}」"
-                program_info = f"（{quote.get('program', '')} / {quote.get('channel', '')}）"
+                quote_text = f'"{quote.get("quote", "")}"'
+                program_info = f"({quote.get('program', '')} / {quote.get('channel', '')})"
                 story.append(Paragraph(quote_text, normal_style))
                 story.append(Paragraph(program_info, small_style))
                 story.append(Spacer(1, 2*mm))
         else:
-            story.append(Paragraph("発言データがありません。", normal_style))
+            story.append(Paragraph("No quote data available.", normal_style))
         
         story.append(Spacer(1, 5*mm))
         
-        # 5. 広報部への示唆
-        story.append(Paragraph("<b>【5. 広報部への示唆】</b>", heading_style))
+        # 5. Recommendations
+        story.append(Paragraph("<b>5. Recommendations</b>", heading_style))
         
         recommendations = llm_analysis.get('recommendations', '')
         if recommendations:
             story.append(Paragraph(recommendations, normal_style))
         else:
-            story.append(Paragraph("推奨事項データがありません。", normal_style))
+            story.append(Paragraph("No recommendation data available.", normal_style))
         
-        # PDFを生成
+        # Generate PDF
         doc.build(story)
         return True
     
     except Exception as e:
-        print(f"PDF生成エラー: {str(e)}")
+        print(f"PDF generation error: {str(e)}")
         return False
 
